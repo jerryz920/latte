@@ -1,0 +1,113 @@
+testing membership
+
+curl http://10.10.1.39:7777/postObjectAcl -d "{ \"principal\": \"bob\",  \"otherValues\": [\"bob:object1\", \"git://github.com/jerryz920/spark\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   157  100    66  100    91   2749   3791 --:--:-- --:--:-- --:--:--  3791100   157  100    66  100    91   2722   3753 --:--:-- --:--:-- --:--:--  3640
+{
+  "message": "['5-2N1uDoz0V5DVtYAXM4FljD3bpJL8tCFPlH2E38_QY']"
+}#curl http://10.10.1.39:7777/postObjectAcl -d "{ \"principal\": \"bob\",  \"otherValues\": [\"bob:object1\", \"git://github.com/jerryz920/docker\"] }"
+curl http://10.10.1.39:7777/postImageProperty -d "{ \"principal\": \"$IAAS_IP\",  \"otherValues\": [\"membership-image-hash\", \"*\", \"git://github.com/jerryz920/docker\"]}"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   185  100    66  100   119   4418   7967 --:--:-- --:--:-- --:--:--  8500
+{
+  "message": "['ky6SQEcjnZaYZi6qKrGzwX9iW10j5TMLToR2y7ihwZI']"
+}curl http://10.10.1.39:7777/postImageProperty -d "{ \"principal\": \"$IAAS_IP\",  \"otherValues\": [\"membership-image-hash2\", \"*\", \"git://github.com/jerryz920/spark\"]}"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   185  100    66  100   119   4308   7768 --:--:-- --:--:-- --:--:--  7933
+{
+  "message": "['DU6QBh8bXAwlOy2FnjfI2INQVwhr9CXqCtk5vn0vKXc']"
+}
+msg=`curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"$IAAS_IP\",  \"otherValues\": [\"2\", \"membership-image-hash\", \"image\", \"2.2.2.2:$base-$base2\", \"*\"] }"`
+curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"$IAAS_IP\",  \"otherValues\": [\"2\", \"membership-image-hash\", \"image\", \"2.2.2.2:$base-$base2\", \"*\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   176  100    66  100   110   3105   5176 --:--:-- --:--:-- --:--:--  5238
+echo $msg | tee key
+{ "message": "['ap_E4FZWzICe7u50l1sg6qjB5zwOwaUo6ODHdCqTQ5g']" }
+inst_id=`python id.py <key`
+python id.py <key
+curl http://10.10.1.39:7777/updateSubjectSet -d "{ \"principal\": \"2.2.2.2:$base-$base2\",  \"otherValues\": [\"$inst_id\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   159  100    66  100    93   4172   5880 --:--:-- --:--:-- --:--:--  6200
+{
+  "message": "['YwY6zw0xfEHkEOoo0OVTJgCutCPm0IZ4XyK3wopgKo4']"
+}
+msg=`curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"2.2.2.2:$base-$base2\",  \"otherValues\": [\"2\", \"membership-image-hash2\", \"image\", \"2.2.2.2:$cbase-$cbase2\", \"*\"] }"`
+curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"2.2.2.2:$base-$base2\",  \"otherValues\": [\"2\", \"membership-image-hash2\", \"image\", \"2.2.2.2:$cbase-$cbase2\", \"*\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   170  100    66  100   104   3613   5693 --:--:-- --:--:-- --:--:--  5777
+echo $msg | tee key
+{ "message": "['FN3qHmGVLJLZKrUzsPLfumsDY4hcX1i4iChffnVptpM']" }
+inst_id=`python id.py <key`
+python id.py <key
+curl http://10.10.1.39:7777/updateSubjectSet -d "{ \"principal\": \"2.2.2.2:$cbase-$cbase2\",  \"otherValues\": [\"$inst_id\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   159  100    66  100    93   4436   6252 --:--:-- --:--:-- --:--:--  6642
+{
+  "message": "['YwY6zw0xfEHkEOoo0OVTJgCutCPm0IZ4XyK3wopgKo4']"
+}#curl http://10.10.1.39:7777/postAttesterImage -d "{ \"principal\": \"2.2.2.2:$base-$base2\",  \"otherValues\": [\"membership-image-hash2\"]}"
+
+msg=`curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"$IAAS_IP\",  \"otherValues\": [\"2\", \"membership-image-hash\", \"image\", \"3.3.3.3:$base-$base2\", \"*\"] }"`
+curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"$IAAS_IP\",  \"otherValues\": [\"2\", \"membership-image-hash\", \"image\", \"3.3.3.3:$base-$base2\", \"*\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   176  100    66  100   110   3452   5754 --:--:-- --:--:-- --:--:--  6111
+echo $msg | tee key
+{ "message": "['JVHg_1F_5kKr3UqE79xD5wZc1PChtiziOGPKCLDU6v0']" }
+inst_id=`python id.py <key`
+python id.py <key
+curl http://10.10.1.39:7777/updateSubjectSet -d "{ \"principal\": \"3.3.3.3:$base-$base2\",  \"otherValues\": [\"$inst_id\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   159  100    66  100    93   4145   5841 --:--:-- --:--:-- --:--:--  6200
+{
+  "message": "['A_zp3bPldOkBhKQ4WOby7eJoYAJ7tC5-dL7QTLDOGbM']"
+}
+
+msg=`curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"3.3.3.3:$base-$base2\",  \"otherValues\": [\"3\", \"membership-image-hash2\", \"image\", \"3.3.3.3:$cbase-$cbase2\", \"*\"] }"`
+curl http://10.10.1.39:7777/postInstanceSet -d "{ \"principal\": \"3.3.3.3:$base-$base2\",  \"otherValues\": [\"3\", \"membership-image-hash2\", \"image\", \"3.3.3.3:$cbase-$cbase2\", \"*\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   170  100    66  100   104   3198   5040 --:--:-- --:--:-- --:--:--  5200
+echo $msg | tee key
+{ "message": "['p-ydczZDMq2c59NoYi6g_MrNzEt56QKFiPNeb9N94do']" }
+inst_id=`python id.py <key`
+python id.py <key
+curl http://10.10.1.39:7777/updateSubjectSet -d "{ \"principal\": \"2.2.2.2:$cbase-$cbase2\",  \"otherValues\": [\"$inst_id\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   159  100    66  100    93   5601   7893 --:--:-- --:--:-- --:--:--  8454
+{
+  "message": "['YwY6zw0xfEHkEOoo0OVTJgCutCPm0IZ4XyK3wopgKo4']"
+}
+
+msg=`curl http://10.10.1.39:7777/postWorkerSet -d "{ \"principal\": \"3.3.3.3:$cbase-$cbase2\",  \"otherValues\": [\"cluster1\", \"2.2.2.2:$((cbase+1))\", \"*\"] }"`
+curl http://10.10.1.39:7777/postWorkerSet -d "{ \"principal\": \"3.3.3.3:$cbase-$cbase2\",  \"otherValues\": [\"cluster1\", \"2.2.2.2:$((cbase+1))\", \"*\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   142  100    66  100    76   3436   3956 --:--:-- --:--:-- --:--:--  4000
+echo $msg | tee key
+{ "message": "['HSXhWjHx0ujmFSiqLeP_WLDJXe0vL6Q7rWYkRsVbDu8']" }
+inst_id=`python id.py <key`
+python id.py <key
+curl http://10.10.1.39:7777/updateWorkerSet -d "{ \"principal\": \"2.2.2.2:$cbase-$cbase2\",  \"otherValues\": [\"$inst_id\"] }"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   159  100    66  100    93   3402   4794 --:--:-- --:--:-- --:--:--  4894
+{
+  "message": "['YwY6zw0xfEHkEOoo0OVTJgCutCPm0IZ4XyK3wopgKo4']"
+}
+
+curl http://10.10.1.39:7777/workerAccessesObject -d "{ \"principal\": \"152.3.145.138:4144\", \"otherValues\": [\"2.2.2.2:$cbase\", \"bob:object1\"]}"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   193  100   113  100    80  10772   7626 --:--:-- --:--:-- --:--:-- 11300
+{
+  "message": "Query failed with msg: java.lang.StringIndexOutOfBoundsException: String index out of range: 0"
+}

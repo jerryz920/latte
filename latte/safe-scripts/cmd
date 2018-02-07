@@ -1,0 +1,64 @@
++ curl http://10.10.1.39:7777/postObjectAcl -d '{ "principal": "bob",  "otherValues": ["bob:object1", "git://github.com/jerryz920/spark"] }'
++ curl http://10.10.1.39:7777/postImageProperty -d '{ "principal": "152.3.145.38:444",  "otherValues": ["membership-image-hash", "*", "git://github.com/jerryz920/docker"]}'
++ curl http://10.10.1.39:7777/postImageProperty -d '{ "principal": "152.3.145.38:444",  "otherValues": ["membership-image-hash2", "*", "git://github.com/jerryz920/spark"]}'
+++ curl http://10.10.1.39:7777/postInstanceSet -d '{ "principal": "152.3.145.38:444",  "otherValues": ["2", "membership-image-hash", "image", "2.2.2.2:-", "*"] }'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   176  100    66  100   110   3199   5333 --:--:-- --:--:-- --:--:--  5500
++ msg='{
+  "message": "['\''ap_E4FZWzICe7u50l1sg6qjB5zwOwaUo6ODHdCqTQ5g'\'']"
+}'
++ tee key
++ echo '{' '"message":' '"['\''ap_E4FZWzICe7u50l1sg6qjB5zwOwaUo6ODHdCqTQ5g'\'']"' '}'
+++ python id.py
++ inst_id=ap_E4FZWzICe7u50l1sg6qjB5zwOwaUo6ODHdCqTQ5g
++ curl http://10.10.1.39:7777/updateSubjectSet -d '{ "principal": "2.2.2.2:-",  "otherValues": ["ap_E4FZWzICe7u50l1sg6qjB5zwOwaUo6ODHdCqTQ5g"] }'
+++ curl http://10.10.1.39:7777/postInstanceSet -d '{ "principal": "2.2.2.2:-",  "otherValues": ["2", "membership-image-hash2", "image", "2.2.2.2:-", "*"] }'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   170  100    66  100   104   2773   4370 --:--:-- --:--:-- --:--:--  4521
++ msg='{
+  "message": "['\''FN3qHmGVLJLZKrUzsPLfumsDY4hcX1i4iChffnVptpM'\'']"
+}'
++ tee key
++ echo '{' '"message":' '"['\''FN3qHmGVLJLZKrUzsPLfumsDY4hcX1i4iChffnVptpM'\'']"' '}'
+++ python id.py
++ inst_id=FN3qHmGVLJLZKrUzsPLfumsDY4hcX1i4iChffnVptpM
++ curl http://10.10.1.39:7777/updateSubjectSet -d '{ "principal": "2.2.2.2:-",  "otherValues": ["FN3qHmGVLJLZKrUzsPLfumsDY4hcX1i4iChffnVptpM"] }'
+++ curl http://10.10.1.39:7777/postInstanceSet -d '{ "principal": "152.3.145.38:444",  "otherValues": ["2", "membership-image-hash", "image", "3.3.3.3:-", "*"] }'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   176  100    66  100   110   2991   4985 --:--:-- --:--:-- --:--:--  5238
++ msg='{
+  "message": "['\''JVHg_1F_5kKr3UqE79xD5wZc1PChtiziOGPKCLDU6v0'\'']"
+}'
++ tee key
++ echo '{' '"message":' '"['\''JVHg_1F_5kKr3UqE79xD5wZc1PChtiziOGPKCLDU6v0'\'']"' '}'
+++ python id.py
++ inst_id=JVHg_1F_5kKr3UqE79xD5wZc1PChtiziOGPKCLDU6v0
++ curl http://10.10.1.39:7777/updateSubjectSet -d '{ "principal": "3.3.3.3:-",  "otherValues": ["JVHg_1F_5kKr3UqE79xD5wZc1PChtiziOGPKCLDU6v0"] }'
+++ curl http://10.10.1.39:7777/postInstanceSet -d '{ "principal": "3.3.3.3:-",  "otherValues": ["3", "membership-image-hash2", "image", "3.3.3.3:-", "*"] }'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   170  100    66  100   104   3015   4751 --:--:-- --:--:-- --:--:--  4952
++ msg='{
+  "message": "['\''p-ydczZDMq2c59NoYi6g_MrNzEt56QKFiPNeb9N94do'\'']"
+}'
++ tee key
++ echo '{' '"message":' '"['\''p-ydczZDMq2c59NoYi6g_MrNzEt56QKFiPNeb9N94do'\'']"' '}'
+++ python id.py
++ inst_id=p-ydczZDMq2c59NoYi6g_MrNzEt56QKFiPNeb9N94do
++ curl http://10.10.1.39:7777/updateSubjectSet -d '{ "principal": "2.2.2.2:-",  "otherValues": ["p-ydczZDMq2c59NoYi6g_MrNzEt56QKFiPNeb9N94do"] }'
+++ curl http://10.10.1.39:7777/postWorkerSet -d '{ "principal": "3.3.3.3:-",  "otherValues": ["cluster1", "2.2.2.2:1", "*"] }'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   142  100    66  100    76   3496   4026 --:--:-- --:--:-- --:--:--  4222
++ msg='{
+  "message": "['\''HSXhWjHx0ujmFSiqLeP_WLDJXe0vL6Q7rWYkRsVbDu8'\'']"
+}'
++ tee key
++ echo '{' '"message":' '"['\''HSXhWjHx0ujmFSiqLeP_WLDJXe0vL6Q7rWYkRsVbDu8'\'']"' '}'
+++ python id.py
++ inst_id=HSXhWjHx0ujmFSiqLeP_WLDJXe0vL6Q7rWYkRsVbDu8
++ curl http://10.10.1.39:7777/updateWorkerSet -d '{ "principal": "2.2.2.2:-",  "otherValues": ["HSXhWjHx0ujmFSiqLeP_WLDJXe0vL6Q7rWYkRsVbDu8"] }'
++ curl http://10.10.1.39:7777/workerAccessesObject -d '{ "principal": "152.3.145.138:4144", "otherValues": ["2.2.2.2:", "bob:object1"]}'

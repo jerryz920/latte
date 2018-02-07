@@ -1,0 +1,63 @@
+
+
+handle fork:
+	if parent not in proc store
+		is_build = false
+		pname = system
+		image = SystemImage
+	else
+		is_build = parent.is_build
+		pname = parent.pname
+
+	lock proc store
+	if proc not created
+	  create proc
+	  child.is_build = is_build
+	  child.pname = pname
+	unlock proc store
+
+handle exec:
+	proc.hash = exechash
+	if exec == latte_exec
+	  	skip
+	else if exec == latte_build
+	  	proc.is_build = true
+	  	skip
+	else
+	  	if proc.policy == nil
+		  	proc.pname = system
+			proc.is_build = false
+	  	evaluate(proc.pname->policy, proc.is_build)
+
+event:
+	case new_policy (pid, pname, policy)
+		/// at this point proc might not yet get created?
+		lock pstore
+   		if pname not exist
+			create pstore[pname] = policy
+		unlock pstore
+
+		lock proc store
+		   if pid->proc not exist
+		     error: might have missed something
+		   /// difference is that here we always set policy
+		   proc.pname = pname
+		   proc.isbulid = if exec == latte_build
+		unlock proc store
+		return success
+
+recover:
+
+	reload pname->policy mapping
+
+	for each proc in the store:
+	  check the system if proc.exec == pid.proc.exec
+	  if so just recreate proc entry
+	
+
+
+for each build command, we label generated file with policy. For an image to be packed and uploaded, we will include policies used for each file.
+
+
+init:
+	create system principal
