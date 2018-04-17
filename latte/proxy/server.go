@@ -8,12 +8,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"regexp"
 	"strconv"
 	"strings"
 
-	eurosys18 "github.com/jerryz920/conferences/eurosys18"
-	kvstore "github.com/jerryz920/conferences/eurosys18/kvstore"
+	eurosys18 "github.com/jerryz920/utils/random/conferences/eurosys18"
+	kvstore "github.com/jerryz920/utils/random/conferences/eurosys18/kvstore"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,6 +26,7 @@ type Principal struct {
 	Name    string
 	ImageID string
 	IP      string
+	Config  string
 	PortMin int
 	PortMax int
 }
@@ -32,8 +34,15 @@ type Principal struct {
 func (p *Principal) Serialize() []string {
 	return []string{p.Name, p.ImageID, p.IP,
 		fmt.Sprintf("%d", p.PortMin),
-		fmt.Sprintf("%d", p.PortMax)}
+		fmt.Sprintf("%d", p.PortMax),
+		p.Config}
 
+}
+
+func (p *Principal) ToSafeValues() []string {
+	return []string{p.Name, p.ImageID, "image",
+		fmt.Sprintf("%s:%d-%d", p.IP, p.PortMin, p.PortMax),
+		p.Config}
 }
 
 func logHeader(resp *http.Response) {
@@ -43,7 +52,7 @@ func logHeader(resp *http.Response) {
 }
 
 func ParsePrincipal(data []string) (*Principal, error) {
-	if len(data) != 5 {
+	if len(data) != 6 {
 		log.Error("recovering principal from data ", data)
 		return nil, errors.New("wrong number of fields")
 	}
@@ -61,6 +70,7 @@ func ParsePrincipal(data []string) (*Principal, error) {
 		log.Error("can not parse the portMax field: ")
 		return nil, errors.New("parse error")
 	}
+	p.Config = data[5]
 	return &p, nil
 }
 
@@ -118,6 +128,7 @@ func ReadRequest(r *http.Request) (*MetadataRequest, []byte, int) {
 		log.Errorf("error reading the body %v\n", err)
 		return nil, nil, http.StatusBadRequest
 	}
+	log.Debug("request body = ", string(data))
 	buf := bytes.NewBuffer(data)
 	d := json.NewDecoder(buf)
 	mr := MetadataRequest{}
@@ -151,10 +162,11 @@ func GetPrincipalID(resp *http.Response) (string, error) {
 }
 
 type MetadataProxy struct {
-	client *http.Client
-	pmap   *Pmap
-	store  eurosys18.Store
-	addr   string
+	client    *http.Client
+	pmap      *Pmap
+	store     eurosys18.Store
+	safestore eurosys18.Store
+	addr      string
 }
 
 func (c *MetadataProxy) getUrl(api string) string {
@@ -190,7 +202,6 @@ func (c *MetadataProxy) postInstanceSet(w http.ResponseWriter, r *http.Request) 
 
 	var pid string
 	if !debugmode {
-		log.Debug("outgoing req: ", string(data))
 		resp, err := c.client.Post(c.getUrl("/postInstanceSet"), "application/json",
 			bytes.NewBuffer(data))
 		if err != nil {
@@ -211,7 +222,7 @@ func (c *MetadataProxy) postInstanceSet(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			log.Debug("error processing response: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error processing proxy response"))
+			w.Write([]byte("\"Error processing proxy response\""))
 			return
 		}
 	} else {
@@ -221,35 +232,58 @@ func (c *MetadataProxy) postInstanceSet(w http.ResponseWriter, r *http.Request) 
 		Name:    m.OtherValues[0],
 		ImageID: m.OtherValues[1],
 		IP:      ip,
+		Config:  m.OtherValues[4],
 		PortMin: p1,
 		PortMax: p2,
 	}
 	//overwrite it!
 	c.pmap.CreatePrincipal(ip, p1, p2, pid)
 	c.store.PutValues(pid, p.Serialize())
+	c.safestore.Put(m.OtherValues[0], pid)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("{\"message\": \"['%s']\"}\n", pid)))
 }
 
 func (c *MetadataProxy) retractInstanceSet(w http.ResponseWriter, r *http.Request) {
-	m, data, status := ReadRequest(r)
+	m, _, status := ReadRequest(r)
 	SetCommonHeader(w)
 	if status != http.StatusOK {
 		log.Debug("error reading request: ", status)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	ip, p1, p2, status := ParseIP(m.OtherValues[3])
-	if status != http.StatusOK {
-		log.Debug("error parsing the IP address: ", status)
+	storedpid := c.safestore.Get(m.OtherValues[0])
+	if storedpid == "" {
+		log.Debug("principal id not found: ", m.OtherValues[0])
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	serialized := c.store.GetValues(storedpid)
+	storedPrincipal, err := ParsePrincipal(serialized)
+	if err != nil {
+		log.Debug("stored principal id not found: ", storedpid)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	ip, p1, p2 := storedPrincipal.IP, storedPrincipal.PortMin,
+		storedPrincipal.PortMax
+
+	newReqBody := MetadataRequest{
+		Principal:   m.Principal,
+		OtherValues: storedPrincipal.ToSafeValues(),
+	}
+	newbuf, err := newReqBody.ByteBuf()
+	if err != nil {
+		log.Debug("error generating the new request body")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Error parsing the IP address"))
 		return
 	}
 	var pid string
 	if !debugmode {
-
+		log.Debug("outgoing delete request: ", newbuf.String())
 		resp, err := c.client.Post(c.getUrl("/retractInstanceSet"), "application/json",
-			bytes.NewBuffer(data))
+			newbuf)
 		if err != nil {
 			log.Debug("error proxying post instance set")
 			if resp == nil {
@@ -263,25 +297,29 @@ func (c *MetadataProxy) retractInstanceSet(w http.ResponseWriter, r *http.Reques
 			w.WriteHeader(resp.StatusCode)
 			return
 		}
-
-		pid, err = GetPrincipalID(resp)
-		if err != nil {
-			log.Debug("error processing response: ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error processing proxy response"))
-			return
+		if log.GetLevel() == log.DebugLevel {
+			dumpdata, _ := httputil.DumpResponse(resp, true)
+			log.Debug("response data dump: ", string(dumpdata))
 		}
+
 	} else {
-		pid = m.OtherValues[0]
+		pid = storedpid
 	}
-	c.store.Del(pid)
+	c.store.Del(storedpid)
+	c.safestore.Del(m.OtherValues[0])
 	c.pmap.DeletePrincipal(ip, p1, p2)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("{\"message\": \"['%s']\"}\n", pid)))
 }
 
 func (c *MetadataProxy) proxyAll(w http.ResponseWriter, r *http.Request) {
+	if log.GetLevel() == log.DebugLevel {
+		data, _ := httputil.DumpRequest(r, true)
+		log.Debug("request data = ", string(data))
+	}
+
 	outreq, err := http.NewRequest(r.Method, c.getUrl(r.URL.RequestURI()), r.Body)
+
 	SetCommonHeader(w)
 	if err != nil {
 		log.Debug("error creating new http request: ", err)
@@ -422,7 +460,7 @@ func (c *MetadataProxy) attest(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("{\"message\": \"%s\"}", content)))
 		return
 	}
-	log.Debugf("outgoing request body: %s\n", newBuf.String())
+	log.Debugf("bearer request body: %s\n", newBuf.String())
 
 	outreq, err := http.NewRequest(r.Method, c.getUrl(r.URL.String()), newBuf)
 	if err != nil {
@@ -577,7 +615,7 @@ func (c *MetadataProxy) workerAccessesObject(w http.ResponseWriter, r *http.Requ
 		w.Write(buf.Bytes())
 		return
 	}
-	log.Debugf("outgoing request body: %s\n", buf.String())
+	log.Debugf("converted request body: %s\n", buf.String())
 
 	outreq, err := http.NewRequest(r.Method, c.getUrl(r.URL.String()), &buf)
 	if err != nil {
@@ -655,7 +693,13 @@ func main() {
 	if err != nil {
 		log.Fatal("can not create pmap store ", err)
 	}
+	safestore, err := eurosys18.NewStore("safe", false)
+	if err != nil {
+		log.Fatal("can not create safe store ", err)
+	}
+
 	client.store = store
+	client.safestore = safestore
 	/// recover existing principals
 	client.RecoverPrincipals()
 

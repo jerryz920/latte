@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"sync"
 
-	eurosys18 "github.com/jerryz920/conferences/eurosys18"
 	jhttp "github.com/jerryz920/utils/goutils/http"
+	eurosys18 "github.com/jerryz920/utils/random/conferences/eurosys18"
 	"github.com/sirupsen/logrus"
 )
 

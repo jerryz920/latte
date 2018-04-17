@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/jerryz920/conferences/eurosys18"
 	jsys "github.com/jerryz920/utils/goutils/sys"
+	"github.com/jerryz920/utils/random/conferences/eurosys18"
 	"github.com/sirupsen/logrus"
 )
 
