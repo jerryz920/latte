@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	eurosys18 "github.com/jerryz920/conferences/latte"
 	jhttp "github.com/jerryz920/utils/goutils/http"
-	eurosys18 "github.com/jerryz920/utils/random/conferences/eurosys18"
 	"github.com/sirupsen/logrus"
 )
 

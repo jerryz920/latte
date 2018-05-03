@@ -23,6 +23,7 @@ type Index struct {
 type PrincipalIndex struct {
 	Index
 	P         string
+	PP        string /// parent pid
 	GroupPort int
 	GroupP    string
 }
@@ -40,6 +41,7 @@ func (p Index) String() string {
 
 type Pmap struct {
 	Identities map[string]*interval.IntTree
+	CidrAlloc  map[string]*net.IPNet
 	counter    int
 }
 
@@ -47,6 +49,7 @@ func NewPmap() *Pmap {
 	return &Pmap{
 		Identities: make(map[string]*interval.IntTree),
 		counter:    1,
+		CidrAlloc:  make(map[string]*net.IPNet),
 	}
 }
 
@@ -59,7 +62,22 @@ func ComputeID(ip string, p1 int, p2 int) uintptr {
 	return uintptr(v1 + v2 + v3)
 }
 
+func (m *Pmap) Loaded(ip string) bool {
+	_, ok := m.Identities[ip]
+	return ok
+}
+
+func (m *Pmap) Unload(ip string) {
+	delete(m.Identities, ip)
+	delete(m.CidrAlloc, ip)
+}
+
 func (m *Pmap) CreatePrincipal(ip string, pmin int, pmax int, p string) {
+	m.CreatePrincipalPP(ip, pmin, pmax, p, "")
+}
+
+/// Need to refactor all these shits, the type is disgusting, p, pp, ppppp
+func (m *Pmap) CreatePrincipalPP(ip string, pmin int, pmax int, p string, pp string) {
 	m.counter++
 	index := PrincipalIndex{
 		Index: Index{
@@ -67,7 +85,8 @@ func (m *Pmap) CreatePrincipal(ip string, pmin int, pmax int, p string) {
 			Pmin: pmin,
 			Pmax: pmax + 1,
 		},
-		P: p,
+		P:  p,
+		PP: pp,
 	}
 	if tree, ok := m.Identities[ip]; ok {
 		tree.Insert(&index, false)
@@ -108,7 +127,7 @@ func (m *Pmap) GetIndex(ip string, port int) (*PrincipalIndex, error) {
 		}
 		/// find the inner most one
 		found := indexes[0]
-		fmt.Printf("debug: found index: %v, %d %d\n", found.ID(), found.Range().Start, found.Range().End)
+		logrus.Debugf("debug: found index: %v, %d %d\n", found.ID(), found.Range().Start, found.Range().End)
 		for i := 1; i < len(indexes); i++ {
 			fmt.Printf("debug: found index: %v, %d %d\n", indexes[i].ID(), indexes[i].Range().Start, indexes[i].Range().End)
 			if found.Range().Start <= indexes[i].Range().Start &&

@@ -7,15 +7,17 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
-	eurosys18 "github.com/jerryz920/utils/random/conferences/eurosys18"
-	kvstore "github.com/jerryz920/utils/random/conferences/eurosys18/kvstore"
-	log "github.com/sirupsen/logrus"
+	eurosys18 "github.com/jerryz920/conferences/latte"
+	kvstore "github.com/jerryz920/conferences/latte/kvstore"
+	logrus "github.com/sirupsen/logrus"
 )
 
 var (
@@ -47,13 +49,13 @@ func (p *Principal) ToSafeValues() []string {
 
 func logHeader(resp *http.Response) {
 	for k, v := range resp.Header {
-		log.Debugf("header %s: %s", k, v)
+		logrus.Debugf("header %s: %s", k, v)
 	}
 }
 
 func ParsePrincipal(data []string) (*Principal, error) {
 	if len(data) != 6 {
-		log.Error("recovering principal from data ", data)
+		logrus.Error("recovering principal from data ", data)
 		return nil, errors.New("wrong number of fields")
 	}
 	var p Principal
@@ -61,13 +63,13 @@ func ParsePrincipal(data []string) (*Principal, error) {
 	p.ImageID = data[1]
 	p.IP = data[2]
 	if n, err := fmt.Sscan(data[3], &p.PortMin); err != nil || n != 1 {
-		log.Error("recovering principal from data ", data)
-		log.Error("can not parse the portMin field: ")
+		logrus.Error("recovering principal from data ", data)
+		logrus.Error("can not parse the portMin field: ")
 		return nil, errors.New("parse error")
 	}
 	if n, err := fmt.Sscan(data[4], &p.PortMax); err != nil || n != 1 {
-		log.Error("recovering principal from data ", data)
-		log.Error("can not parse the portMax field: ")
+		logrus.Error("recovering principal from data ", data)
+		logrus.Error("can not parse the portMax field: ")
 		return nil, errors.New("parse error")
 	}
 	p.Config = data[5]
@@ -76,7 +78,23 @@ func ParsePrincipal(data []string) (*Principal, error) {
 
 type MetadataRequest struct {
 	Principal   string   `json:"principal"`
+	ParentBear  string   `json:"bearerRef,omitempty"`
 	OtherValues []string `json:"otherValues"`
+
+	/// fields not to be marshaled but used internally
+	ip    net.IP
+	lport int
+	rport int
+
+	// Used to carry some intermediate information
+	targetCidr  *net.IPNet
+	targetIp    net.IP
+	targetLport int
+	targetRport int
+
+	// original request
+	url    string
+	method string
 }
 
 func (r MetadataRequest) ByteBuf() (*bytes.Buffer, error) {
@@ -99,23 +117,52 @@ var (
 	pStore       map[string]*Principal
 )
 
-func ParseIP(msg string) (string, int, int, int) {
+func ParseIP2(msg string) (string, int, int, int) {
+	if matches := ipPortMatch.FindStringSubmatch(msg); len(matches) != 3 {
+		logrus.Infof("not valid ip port: %s. Give up", msg)
+		return "", -1, -1, http.StatusBadRequest
+	} else {
+		var p1 int64
+		var err error
+		if p1, err = strconv.ParseInt(matches[2], 10, 32); err != nil {
+			logrus.Errorf("error parsing port min: %v", err)
+			return "", 0, 0, http.StatusBadRequest
+		}
+		return matches[1], int(p1), -1, http.StatusOK
+	}
+
+}
+
+func ParseIP3(msg string) (string, int, int, int) {
 	if matches := ipRangeMatch.FindStringSubmatch(msg); len(matches) != 4 {
-		log.Errorf("not valid principal ip-port range: %s", msg)
-		return "", 0, 0, http.StatusBadRequest
+		logrus.Infof("not valid ip:port-range: %s. Try ip-port", msg)
+		return ParseIP2(msg)
 	} else {
 		var p1, p2 int64
 		var err error
 		if p1, err = strconv.ParseInt(matches[2], 10, 32); err != nil {
-			log.Errorf("error parsing port min: %v", err)
+			logrus.Errorf("error parsing port min: %v", err)
 			return "", 0, 0, http.StatusBadRequest
 		}
 		if p2, err = strconv.ParseInt(matches[3], 10, 32); err != nil {
-			log.Errorf("error parsing port max: %v", err)
+			logrus.Errorf("error parsing port max: %v", err)
 			return "", 0, 0, http.StatusBadRequest
 		}
 		return matches[1], int(p1), int(p2), http.StatusOK
 	}
+}
+
+func ParseIP(msg string) (string, int, int, int) {
+	return ParseIP3(msg)
+}
+
+func ParseIPNew(msg string) (net.IP, int, int, int) {
+	ipstr, p1, p2, status := ParseIP(msg)
+	ip := net.ParseIP(ipstr)
+	if ip == nil {
+		return nil, -1, -1, http.StatusBadRequest
+	}
+	return ip, p1, p2, status
 }
 
 func SetCommonHeader(w http.ResponseWriter) {
@@ -125,15 +172,15 @@ func SetCommonHeader(w http.ResponseWriter) {
 func ReadRequest(r *http.Request) (*MetadataRequest, []byte, int) {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Errorf("error reading the body %v\n", err)
+		logrus.Errorf("error reading the body %v\n", err)
 		return nil, nil, http.StatusBadRequest
 	}
-	log.Debug("request body = ", string(data))
+	logrus.Debug("request body = ", string(data))
 	buf := bytes.NewBuffer(data)
 	d := json.NewDecoder(buf)
 	mr := MetadataRequest{}
 	if err := d.Decode(&mr); err != nil {
-		log.Errorf("error decoding the body %v\n", err)
+		logrus.Errorf("error decoding the body %v\n", err)
 		return nil, nil, http.StatusBadRequest
 	} else {
 		return &mr, data, http.StatusOK
@@ -142,20 +189,20 @@ func ReadRequest(r *http.Request) (*MetadataRequest, []byte, int) {
 
 func GetPrincipalID(resp *http.Response) (string, error) {
 	if resp.StatusCode != http.StatusOK {
-		log.Debugf("error getting response %v\n", resp.StatusCode)
+		logrus.Debugf("error getting response %v\n", resp.StatusCode)
 		return "", errors.New("error state " + resp.Status)
 	}
 	decoder := json.NewDecoder(resp.Body)
 	pr := PrincipalResponse{}
 
 	if err := decoder.Decode(&pr); err != nil {
-		log.Debugf("error in decoding %v\n", err)
+		logrus.Debugf("error in decoding %v\n", err)
 		return "", err
 	}
 	/// message is in ['<ID>'] form
 	var matches []string
 	if matches = pidMatch.FindStringSubmatch(pr.Message); len(matches) != 2 {
-		log.Debugf("error finding PID: %v", pr.Message)
+		logrus.Debugf("error finding PID: %v", pr.Message)
 		return "", errors.New("error finding pid in response")
 	}
 	return matches[1], nil
@@ -166,6 +213,7 @@ type MetadataProxy struct {
 	pmap      *Pmap
 	store     eurosys18.Store
 	safestore eurosys18.Store
+	newstore  RiakConn // TODO: rename this to general thing
 	addr      string
 }
 
@@ -180,7 +228,6 @@ func (c *MetadataProxy) getUrl(api string) string {
 	if strings.HasPrefix(api, "/") {
 		api = api[1:]
 	}
-	log.Info("posting to ", addr+api)
 	return addr + api
 }
 
@@ -188,13 +235,13 @@ func (c *MetadataProxy) postInstanceSet(w http.ResponseWriter, r *http.Request) 
 	m, data, status := ReadRequest(r)
 	SetCommonHeader(w)
 	if status != http.StatusOK {
-		log.Debug("error reading request: ", status)
+		logrus.Debug("error reading request: ", status)
 		return
 	}
 
 	ip, p1, p2, status := ParseIP(m.OtherValues[3])
 	if status != http.StatusOK {
-		log.Debug("error parsing the IP address: ", status)
+		logrus.Debug("error parsing the IP address: ", status)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Error parsing the IP address"))
 		return
@@ -205,7 +252,7 @@ func (c *MetadataProxy) postInstanceSet(w http.ResponseWriter, r *http.Request) 
 		resp, err := c.client.Post(c.getUrl("/postInstanceSet"), "application/json",
 			bytes.NewBuffer(data))
 		if err != nil {
-			log.Error("error proxying post instance set", err)
+			logrus.Error("error proxying post instance set", err)
 			if resp == nil {
 				w.WriteHeader(http.StatusInternalServerError)
 			} else {
@@ -220,7 +267,7 @@ func (c *MetadataProxy) postInstanceSet(w http.ResponseWriter, r *http.Request) 
 
 		pid, err = GetPrincipalID(resp)
 		if err != nil {
-			log.Debug("error processing response: ", err)
+			logrus.Debug("error processing response: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("\"Error processing proxy response\""))
 			return
@@ -248,20 +295,20 @@ func (c *MetadataProxy) retractInstanceSet(w http.ResponseWriter, r *http.Reques
 	m, _, status := ReadRequest(r)
 	SetCommonHeader(w)
 	if status != http.StatusOK {
-		log.Debug("error reading request: ", status)
+		logrus.Debug("error reading request: ", status)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	storedpid := c.safestore.Get(m.OtherValues[0])
 	if storedpid == "" {
-		log.Debug("principal id not found: ", m.OtherValues[0])
+		logrus.Debug("principal id not found: ", m.OtherValues[0])
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	serialized := c.store.GetValues(storedpid)
 	storedPrincipal, err := ParsePrincipal(serialized)
 	if err != nil {
-		log.Debug("stored principal id not found: ", storedpid)
+		logrus.Debug("stored principal id not found: ", storedpid)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -275,17 +322,17 @@ func (c *MetadataProxy) retractInstanceSet(w http.ResponseWriter, r *http.Reques
 	}
 	newbuf, err := newReqBody.ByteBuf()
 	if err != nil {
-		log.Debug("error generating the new request body")
+		logrus.Debug("error generating the new request body")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	var pid string
 	if !debugmode {
-		log.Debug("outgoing delete request: ", newbuf.String())
+		logrus.Debug("outgoing delete request: ", newbuf.String())
 		resp, err := c.client.Post(c.getUrl("/retractInstanceSet"), "application/json",
 			newbuf)
 		if err != nil {
-			log.Debug("error proxying post instance set")
+			logrus.Debug("error proxying post instance set")
 			if resp == nil {
 				w.WriteHeader(http.StatusInternalServerError)
 			} else {
@@ -297,9 +344,9 @@ func (c *MetadataProxy) retractInstanceSet(w http.ResponseWriter, r *http.Reques
 			w.WriteHeader(resp.StatusCode)
 			return
 		}
-		if log.GetLevel() == log.DebugLevel {
+		if logrus.GetLevel() == logrus.DebugLevel {
 			dumpdata, _ := httputil.DumpResponse(resp, true)
-			log.Debug("response data dump: ", string(dumpdata))
+			logrus.Debug("response data dump: ", string(dumpdata))
 		}
 
 	} else {
@@ -313,23 +360,23 @@ func (c *MetadataProxy) retractInstanceSet(w http.ResponseWriter, r *http.Reques
 }
 
 func (c *MetadataProxy) proxyAll(w http.ResponseWriter, r *http.Request) {
-	if log.GetLevel() == log.DebugLevel {
+	if logrus.GetLevel() == logrus.DebugLevel {
 		data, _ := httputil.DumpRequest(r, true)
-		log.Debug("request data = ", string(data))
+		logrus.Debug("request data = ", string(data))
 	}
 
 	outreq, err := http.NewRequest(r.Method, c.getUrl(r.URL.RequestURI()), r.Body)
 
 	SetCommonHeader(w)
 	if err != nil {
-		log.Debug("error creating new http request: ", err)
+		logrus.Debug("error creating new http request: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if !debugmode {
 		resp, err := c.client.Do(outreq)
 		if err != nil {
-			log.Debug("error processing proxy request: ", err)
+			logrus.Debug("error processing proxy request: ", err)
 			if resp == nil {
 				w.WriteHeader(http.StatusInternalServerError)
 			} else {
@@ -344,7 +391,7 @@ func (c *MetadataProxy) proxyAll(w http.ResponseWriter, r *http.Request) {
 
 		data, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			log.Debug("error reading the response from server: ", err)
+			logrus.Debug("error reading the response from server: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -363,15 +410,20 @@ type BearerMetadataRequest struct {
 }
 
 func (c *MetadataProxy) lookupAuthID(endorsee string) (string, string, int, error) {
+
+	if endorsee == IaaSProvider {
+		return IaaSProvider, "", 0, nil
+	}
+
 	matches := ipPortMatch.FindStringSubmatch(endorsee)
 	if len(matches) != 3 {
-		log.Debug("error parsing the IP:port, actual", endorsee)
+		logrus.Debug("error parsing the IP:port, actual", endorsee)
 		return "", "", 0, errors.New("error parsing IP:Port pair")
 	}
 	ip := matches[1]
 	port, err := strconv.ParseInt(matches[2], 10, 32)
 	if err != nil {
-		log.Debug("error parsing the port int")
+		logrus.Debug("error parsing the port int")
 		return "", "", 0, err
 	}
 	index, err := c.pmap.GetIndex(ip, int(port))
@@ -386,13 +438,13 @@ func (c *MetadataProxy) lookupAuthID(endorsee string) (string, string, int, erro
 func (c *MetadataProxy) lookupGroupPortAndBearer(endorsee string) (string, string, int, error) {
 	matches := ipPortMatch.FindStringSubmatch(endorsee)
 	if len(matches) != 3 {
-		log.Debug("error parsing the IP:port, actual", endorsee)
+		logrus.Debug("error parsing the IP:port, actual", endorsee)
 		return "", "", 0, errors.New("error parsing IP:Port pair")
 	}
 	ip := matches[1]
 	port, err := strconv.ParseInt(matches[2], 10, 32)
 	if err != nil {
-		log.Debug("error parsing the port int")
+		logrus.Debug("error parsing the port int")
 		return "", "", -1, err
 	}
 	index, err := c.pmap.GetIndex(ip, int(port))
@@ -411,19 +463,19 @@ func (c *MetadataProxy) marshalBearer(r *MetadataRequest) (*bytes.Buffer, error)
 
 	matches := ipPortMatch.FindStringSubmatch(r.OtherValues[0])
 	if len(matches) != 3 {
-		log.Debug("error parsing the IP:port, actual", r.OtherValues[0])
+		logrus.Debug("error parsing the IP:port, actual", r.OtherValues[0])
 		return nil, errors.New("error parsing IP:Port pair")
 	}
 	ip := matches[1]
 	port, err := strconv.ParseInt(matches[2], 10, 32)
 	if err != nil {
-		log.Debug("error parsing the port int")
+		logrus.Debug("error parsing the port int")
 		return nil, err
 	}
 
 	pid, err := c.pmap.GetPrincipal(ip, int(port))
 	if err != nil {
-		log.Debugf("error searching for principal on %s:%d", ip, port)
+		logrus.Debugf("error searching for principal on %s:%d", ip, port)
 		return nil, err
 	}
 	br.BearerRef = pid
@@ -431,7 +483,7 @@ func (c *MetadataProxy) marshalBearer(r *MetadataRequest) (*bytes.Buffer, error)
 	buf := bytes.Buffer{}
 	encoder := json.NewEncoder(&buf)
 	if err := encoder.Encode(&br); err != nil {
-		log.Debug("error encoding the principal ", err, br)
+		logrus.Debug("error encoding the principal ", err, br)
 		return nil, err
 	}
 	return &buf, nil
@@ -441,14 +493,14 @@ func (c *MetadataProxy) attest(w http.ResponseWriter, r *http.Request) {
 	m, _, status := ReadRequest(r)
 	SetCommonHeader(w)
 	if status != http.StatusOK {
-		log.Debug("error reading request: ", status)
+		logrus.Debug("error reading request: ", status)
 		w.WriteHeader(status)
 		return
 	}
 
 	newBuf, err := c.marshalBearer(m)
 	if err != nil {
-		log.Debug("error finding bearer for incoming request ", err)
+		logrus.Debug("error finding bearer for incoming request ", err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -460,17 +512,17 @@ func (c *MetadataProxy) attest(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("{\"message\": \"%s\"}", content)))
 		return
 	}
-	log.Debugf("bearer request body: %s\n", newBuf.String())
+	logrus.Debugf("bearer request body: %s\n", newBuf.String())
 
 	outreq, err := http.NewRequest(r.Method, c.getUrl(r.URL.String()), newBuf)
 	if err != nil {
-		log.Debug("error creating new http request: ", err)
+		logrus.Debug("error creating new http request: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	resp, err := c.client.Do(outreq)
 	if err != nil {
-		log.Debug("error processing proxy request: ", err)
+		logrus.Debug("error processing proxy request: ", err)
 		if resp != nil {
 			w.WriteHeader(resp.StatusCode)
 		} else {
@@ -486,7 +538,7 @@ func (c *MetadataProxy) attest(w http.ResponseWriter, r *http.Request) {
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Debug("error reading the response from server: ", err)
+		logrus.Debug("error reading the response from server: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -498,14 +550,14 @@ func (c *MetadataProxy) postWorkerSet(w http.ResponseWriter, r *http.Request) {
 	m, data, status := ReadRequest(r)
 	SetCommonHeader(w)
 	if status != http.StatusOK {
-		log.Debug("error reading request: ", status)
+		logrus.Debug("error reading request: ", status)
 		w.WriteHeader(status)
 		return
 	}
 	/// first check if the remote principal actually exists
 	authID, ip, port, err := c.lookupAuthID(m.OtherValues[1])
 	if authID == "" || err != nil {
-		log.Debug("can not read out endorsee ", err)
+		logrus.Debug("can not read out endorsee ", err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -515,7 +567,7 @@ func (c *MetadataProxy) postWorkerSet(w http.ResponseWriter, r *http.Request) {
 		resp, err := c.client.Post(c.getUrl("/postWorkerSet"), "application/json",
 			bytes.NewBuffer(data))
 		if err != nil {
-			log.Error("error proxying post worker set", err)
+			logrus.Error("error proxying post worker set", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -527,7 +579,7 @@ func (c *MetadataProxy) postWorkerSet(w http.ResponseWriter, r *http.Request) {
 
 		pid, err = GetPrincipalID(resp)
 		if err != nil {
-			log.Debug("error processing response: ", err)
+			logrus.Debug("error processing response: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Error processing proxy response"))
 			return
@@ -541,17 +593,17 @@ func (c *MetadataProxy) postWorkerSet(w http.ResponseWriter, r *http.Request) {
 		}
 		buf, err := updateReq.ByteBuf()
 		if err != nil {
-			log.Debug("error parsing request principal: ", err)
+			logrus.Debug("error parsing request principal: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Error processing proxy response"))
 			return
 		}
-		log.Debug("subject set req: ", buf.String())
+		logrus.Debug("subject set req: ", buf.String())
 		resp, err = c.client.Post(c.getUrl("/updateSubjectSet"), "application/json",
 			buf)
 
 		if err != nil {
-			log.Error("error updating worker subject set", err)
+			logrus.Error("error updating worker subject set", err)
 			if resp == nil {
 				w.WriteHeader(http.StatusInternalServerError)
 			} else {
@@ -559,10 +611,10 @@ func (c *MetadataProxy) postWorkerSet(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		log.Info("Updating subject set, status: ", resp.StatusCode)
+		logrus.Info("Updating subject set, status: ", resp.StatusCode)
 		pid, err = GetPrincipalID(resp)
 		if err != nil {
-			log.Debug("error processing response: ", err)
+			logrus.Debug("error processing response: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Error processing proxy response"))
 			return
@@ -582,14 +634,14 @@ func (c *MetadataProxy) workerAccessesObject(w http.ResponseWriter, r *http.Requ
 	m, _, status := ReadRequest(r)
 	SetCommonHeader(w)
 	if status != http.StatusOK {
-		log.Debug("error reading request: ", status)
+		logrus.Debug("error reading request: ", status)
 		w.WriteHeader(status)
 		return
 	}
 
 	bearer, ip, groupPort, err := c.lookupGroupPortAndBearer(m.OtherValues[0])
 	if err != nil {
-		log.Debug("error finding the group port of the principal, return reject")
+		logrus.Debug("error finding the group port of the principal, return reject")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -604,7 +656,7 @@ func (c *MetadataProxy) workerAccessesObject(w http.ResponseWriter, r *http.Requ
 	buf := bytes.Buffer{}
 	encoder := json.NewEncoder(&buf)
 	if err := encoder.Encode(&br); err != nil {
-		log.Debug("error encode the bearer request")
+		logrus.Debug("error encode the bearer request")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -615,17 +667,17 @@ func (c *MetadataProxy) workerAccessesObject(w http.ResponseWriter, r *http.Requ
 		w.Write(buf.Bytes())
 		return
 	}
-	log.Debugf("converted request body: %s\n", buf.String())
+	logrus.Debugf("converted request body: %s\n", buf.String())
 
 	outreq, err := http.NewRequest(r.Method, c.getUrl(r.URL.String()), &buf)
 	if err != nil {
-		log.Debug("error creating new http request: ", err)
+		logrus.Debug("error creating new http request: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	resp, err := c.client.Do(outreq)
 	if err != nil {
-		log.Debug("error sending request ", err)
+		logrus.Debug("error sending request ", err)
 		if resp != nil {
 			w.WriteHeader(resp.StatusCode)
 		} else {
@@ -641,7 +693,7 @@ func (c *MetadataProxy) workerAccessesObject(w http.ResponseWriter, r *http.Requ
 	}
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Debug("error reading the response from server: ", err)
+		logrus.Debug("error reading the response from server: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -655,7 +707,7 @@ func (c *MetadataProxy) RecoverPrincipals() {
 		values := c.store.GetValues(pid)
 		p, err := ParsePrincipal(values)
 		if err != nil {
-			log.Errorf("fail to recover pricipal %s: %v", pid, err)
+			logrus.Errorf("fail to recover pricipal %s: %v", pid, err)
 			continue
 		}
 		c.pmap.CreatePrincipal(p.IP, p.PortMin, p.PortMax, pid)
@@ -668,13 +720,15 @@ func main() {
 	args := flag.Args()
 	addr := ""
 	if len(args) < 1 {
-		log.Info("no server address provided, debug mode")
+		logrus.Info("no server address provided, debug mode")
 		debugmode = true
 	} else {
 		addr = args[0]
 	}
+	logrus.SetLevel(logrus.InfoLevel)
+	riakaddr := "localhost:8087"
 	if len(args) >= 2 {
-		log.SetLevel(log.DebugLevel)
+		riakaddr = args[1]
 	}
 	client := MetadataProxy{
 		client: &http.Client{
@@ -682,20 +736,26 @@ func main() {
 				DisableCompression: true,
 			},
 		},
-		pmap: NewPmap(),
-		addr: addr,
+		pmap:     NewPmap(),
+		addr:     addr,
+		newstore: NewRiakConn(),
+	}
+	if len(args) >= 3 {
+		//eurosys18.RestartStore(true)
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+	if err := client.newstore.Connect(riakaddr); err != nil {
+		logrus.Errorf("can not connect to riak address: %s, %s", riakaddr, err)
+		os.Exit(1)
 	}
 
-	if len(args) >= 3 {
-		eurosys18.RestartStore(true)
-	}
 	store, err := eurosys18.NewStore("pmap", false)
 	if err != nil {
-		log.Fatal("can not create pmap store ", err)
+		logrus.Fatal("can not create pmap store ", err)
 	}
 	safestore, err := eurosys18.NewStore("safe", false)
 	if err != nil {
-		log.Fatal("can not create safe store ", err)
+		logrus.Fatal("can not create safe store ", err)
 	}
 
 	client.store = store
@@ -704,6 +764,8 @@ func main() {
 	client.RecoverPrincipals()
 
 	server := kvstore.NewKvStore(client.proxyAll)
+
+	//// Legacy APIs
 	server.AddRoute("/postInstanceSet", client.postInstanceSet, "")
 	server.AddRoute("/retractInstanceSet", client.retractInstanceSet, "")
 	server.AddRoute("/updateSubjectSet", client.proxyAll, "")
@@ -717,7 +779,10 @@ func main() {
 	server.AddRoute("/workerAccessesObject", client.workerAccessesObject, "")
 	server.AddRoute("/checkImgProperty", client.proxyAll, "")
 
+	SetupNewAPIs(&client, server)
+	//// New APIs
+
 	if err := server.ListenAndServe(eurosys18.MetadataProxyAddress); err != nil {
-		log.Fatal("can not listen on address: ", err)
+		logrus.Fatal("can not listen on address: ", err)
 	}
 }
