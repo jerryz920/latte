@@ -404,6 +404,7 @@ func (c *MetadataProxy) lazyDeleteInstance(w http.ResponseWriter, r *http.Reques
 			mr.targetIp = portmaps[0].Ip
 			mr.targetLport = portmaps[0].Lport
 			mr.targetRport = portmaps[0].Rport
+			return "", http.StatusOK
 		},
 		func(mr *MetadataRequest, data []byte, status int) (string, int) {
 			/// Only non-VM instance needs to delete it
@@ -423,9 +424,45 @@ func (c *MetadataProxy) lazyDeleteInstance(w http.ResponseWriter, r *http.Reques
 				c.DelAlloc(mr.targetIp)
 			}
 			c.deleteNetToID(mr.targetIp, mr.targetLport, mr.targetRport)
+			return "", http.StatusOK
 		},
 		true,
 	)
+	w.WriteHeader(status)
+	w.Write([]byte(msg))
+}
+func (c *MetadataProxy) postInstanceConfig(w http.ResponseWriter, r *http.Request) {
+	SetCommonHeader(w)
+	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
+
+		remain := len(mr.OtherValues) - 1
+		current := 1 /// skip the instance ID.
+		for remain > 10 {
+			args := make([]string, 0)
+			args = append(args, mr.OtherValues[0])
+			args = append(args, mr.OtherValues[current:current+10]...)
+
+			copyr := &MetadataRequest{
+				Principal:   mr.Principal,
+				OtherValues: args,
+				method:      "POST",
+				url:         "/postInstanceConfig5",
+			}
+			msg, status := c.newHandler(copyr, nil, nil)
+
+			if status != http.StatusOK {
+				logrus.Error("error posting configurations, original: %v, left: %v",
+					mr.OtherValues, mr.OtherValues[current:])
+				return msg, status
+			}
+			current += 10
+			remain -= 10
+		}
+		/// The handler will continue to handle the remaining configs
+		return "", http.StatusOK
+	}, nil, false)
+	w.WriteHeader(status)
+	w.Write([]byte(msg))
 }
 
 func (c *MetadataProxy) handleCheck(w http.ResponseWriter, r *http.Request) {
@@ -526,6 +563,8 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 	server.AddRoute("/delInstance", c.deleteInstance, "")
 	server.AddRoute("/delVMInstance", c.deleteVMInstance, "")
 	server.AddRoute("/lazyDeleteInstance", c.lazyDeleteInstance, "")
+	/// Handling any num of configs
+	server.AddRoute("/postInstanceConfig", c.postInstanceConfig, "")
 
 	otherMethods := []string{
 		"/postCluster",
