@@ -207,7 +207,9 @@ func (c *MetadataProxy) authzControl(mr *MetadataRequest) int {
 
 func (c *MetadataProxy) preInstanceCallHandler(mr *MetadataRequest) (string, int) {
 	var ok int
+	/// call to instance
 	mr.targetIp, mr.targetLport, mr.targetRport, ok = ParseIPNew(mr.OtherValues[2])
+
 	if ok != http.StatusOK {
 		return fmt.Sprintf("error parsing target IP %s", mr.OtherValues[2]), ok
 	}
@@ -241,15 +243,18 @@ func (c *MetadataProxy) postInstanceCreationHandler(mr *MetadataRequest, data []
 		return string(data), status
 	}
 
-	controlMr := MetadataRequest{
-		Principal:   IaaSProvider,
-		OtherValues: []string{mr.Principal, mr.OtherValues[0]},
-		method:      "POST",
-		url:         "/postInstanceControl",
-	}
-	msg, controlStatus := c.newHandler(&controlMr, nil, nil)
-	if controlStatus != http.StatusOK {
-		return msg, controlStatus
+	/// Only IaaS provider needs to delete this
+	if mr.Principal != IaaSProvider {
+		controlMr := MetadataRequest{
+			Principal:   IaaSProvider,
+			OtherValues: []string{mr.Principal, mr.OtherValues[0]},
+			method:      "POST",
+			url:         "/postInstanceControl",
+		}
+		msg, controlStatus := c.newHandler(&controlMr, nil, nil)
+		if controlStatus != http.StatusOK {
+			return msg, controlStatus
+		}
 	}
 	c.createNetToID(mr.targetIp, mr.targetLport, mr.targetRport, mr.OtherValues[0], mr.Principal)
 	return fmt.Sprintf("{\"message\": \"['%s']\"}\n", mr.OtherValues[0]),
@@ -386,6 +391,43 @@ func (c *MetadataProxy) postLinkImageOwner(w http.ResponseWriter, r *http.Reques
 	w.Write([]byte(msg))
 }
 
+func (c *MetadataProxy) lazyDeleteInstance(w http.ResponseWriter, r *http.Request) {
+	SetCommonHeader(w)
+	msg, status := c.newHandlerUnwrapped(r,
+		func(mr *MetadataRequest) (string, int) {
+			portmaps, err := c.newstore.SearchIDNet(mr.OtherValues[1])
+			/// in theory we should start multiple remove calls but now we assume only one
+			if len(portmaps) < 1 || err != nil {
+				msg := fmt.Sprint("error in searching ID to net map. Should have at least one. err=", err)
+				return msg, http.StatusInternalServerError
+			}
+			mr.targetIp = portmaps[0].Ip
+			mr.targetLport = portmaps[0].Lport
+			mr.targetRport = portmaps[0].Rport
+		},
+		func(mr *MetadataRequest, data []byte, status int) (string, int) {
+			/// Only non-VM instance needs to delete it
+			if mr.Principal != IaaSProvider {
+				controlMr := MetadataRequest{
+					Principal:   IaaSProvider,
+					OtherValues: []string{mr.Principal, mr.OtherValues[0]},
+					method:      "POST",
+					url:         "/delInstanceControl",
+				}
+				msg, controlStatus := c.newHandler(&controlMr, nil, nil)
+				if controlStatus != http.StatusOK {
+					return msg, controlStatus
+				}
+			} else {
+				/// VMs need to have allocation deleted
+				c.DelAlloc(mr.targetIp)
+			}
+			c.deleteNetToID(mr.targetIp, mr.targetLport, mr.targetRport)
+		},
+		true,
+	)
+}
+
 func (c *MetadataProxy) handleCheck(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
@@ -483,6 +525,8 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 	server.AddRoute("/postLinkImageOwner", c.postLinkImageOwner, "")
 	server.AddRoute("/delInstance", c.deleteInstance, "")
 	server.AddRoute("/delVMInstance", c.deleteVMInstance, "")
+	server.AddRoute("/lazyDeleteInstance", c.lazyDeleteInstance, "")
+
 	otherMethods := []string{
 		"/postCluster",
 		"/delAckMembership",
@@ -507,7 +551,6 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 		"/delVpcConfig3",
 		"/delVpcConfig4",
 		"/delVpcConfig5",
-		"/lazyDeleteInstance",
 		"/postAckMembership",
 		"/postConditionalEndorsement",
 		"/postEndorsement",

@@ -45,6 +45,7 @@ func (i *InstanceCred) Bytes() []byte {
 }
 
 type PortRangeMap struct {
+	Ip    net.IP
 	Lport int
 	Rport int
 	ID    *InstanceCred
@@ -59,6 +60,8 @@ type RiakConn interface {
 	GetNetIDMap(ip net.IP, lport int, rport int) (*InstanceCred, error)
 	DelNetIDMap(ip net.IP, lport int, rport int) error
 	GetAllNetID(ip net.IP) ([]PortRangeMap, error)
+	///
+	SearchIDNet(uuid string) ([]PortRangeMap, error)
 	Shutdown() error
 }
 
@@ -334,7 +337,7 @@ func (c *riakConn) GetAllNetID(ip net.IP) ([]PortRangeMap, error) {
 		for _, d := range actual.Response.Docs {
 			pids, ok := d.Fields[NETMAP_PID]
 			if !ok || pids == nil || len(pids) == 0 {
-				logrus.Error("missing ParentID in index: %s,%s, [%v]",
+				logrus.Error("missing ParentID in index: bucket=%s,key=%s, [%v]",
 					d.Bucket, d.Key, d.Fields)
 				continue
 			}
@@ -342,14 +345,14 @@ func (c *riakConn) GetAllNetID(ip net.IP) ([]PortRangeMap, error) {
 
 			ids, ok := d.Fields[NETMAP_ID]
 			if !ok || ids == nil || len(ids) == 0 {
-				logrus.Error("missing ID in index: %s,%s, [%v]",
+				logrus.Error("missing ID in index: bucket=%s,key=%s, [%v]",
 					d.Bucket, d.Key, d.Fields)
 				continue
 			}
 			id := ids[0]
 			var lport, rport int
 			if n, err := fmt.Sscanf(d.Key, "%d:%d", &lport, &rport); err != nil || n != 2 {
-				logrus.Error("wrong key format of index: %s,%s", d.Bucket, d.Key)
+				logrus.Error("wrong key format of index: bucket=%s, key=%s", d.Bucket, d.Key)
 				if err != nil {
 					logrus.Error("error: ", err)
 				}
@@ -369,6 +372,50 @@ func (c *riakConn) GetAllNetID(ip net.IP) ([]PortRangeMap, error) {
 	}
 	logrus.Debug("error in reading response of get net id map")
 	return result, errors.New("Unknown command")
+}
+
+func (c *riakConn) SearchIDNet(uuid string) ([]PortRangeMap, error) {
+	t1 := time.Now()
+	query := fmt.Sprintf("%s:%s AND %s:%s", NETMAP_ID, uuid,
+		QUERY_BUCKET_TYPE, RIAK_BUCKET_TYPE)
+	cmd, err := riak.NewSearchCommandBuilder().
+		WithReturnFields(QUERY_KEY, QUERY_BUCKET).
+		WithIndexName(RIAK_INDEX_NAME).
+		WithQuery(query).Build()
+	result := make([]PortRangeMap, 0)
+	if err != nil {
+		logrus.Debug("error in building search id to net map command")
+		return result, err
+	}
+	if actual, ok := cmd.(*riak.SearchCommand); ok {
+		if len(actual.Response.Docs) == 0 {
+			return result, nil
+		}
+		for _, d := range actual.Response.Docs {
+
+			ip := net.ParseIP(d.Bucket)
+			if ip == nil {
+				logrus.Error("wrong bucket of index: ID=%s, Bucket=%s", uuid, d.Bucket)
+				continue
+			}
+			var lport, rport int
+			if n, err := fmt.Sscanf(d.Key, "%d:%d", &lport, &rport); err != nil || n != 2 {
+				logrus.Error("wrong key format of index: ID=%s, key=%s", uuid, d.Key)
+				if err != nil {
+					logrus.Error("error: ", err)
+				}
+				continue
+			}
+			result = append(result, PortRangeMap{
+				Ip:    ip,
+				Lport: lport,
+				Rport: rport,
+			})
+		}
+		logrus.Info("PERFRIAK SearchIDNet ", time.Now().Sub(t1).Seconds())
+		return result, nil
+	}
+	return result, errors.New("unknown command")
 }
 
 func (c *riakConn) Shutdown() error {
