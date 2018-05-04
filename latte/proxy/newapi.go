@@ -395,7 +395,7 @@ func (c *MetadataProxy) lazyDeleteInstance(w http.ResponseWriter, r *http.Reques
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r,
 		func(mr *MetadataRequest) (string, int) {
-			portmaps, err := c.newstore.SearchIDNet(mr.OtherValues[1])
+			portmaps, err := c.newstore.SearchIDNet(mr.OtherValues[0])
 			/// in theory we should start multiple remove calls but now we assume only one
 			if len(portmaps) < 1 || err != nil {
 				msg := fmt.Sprint("error in searching ID to net map. Should have at least one. err=", err)
