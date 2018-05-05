@@ -459,6 +459,8 @@ func (c *MetadataProxy) postInstanceConfig(w http.ResponseWriter, r *http.Reques
 			current += 10
 			remain -= 10
 		}
+		mr.method = "POST"
+		mr.url = fmt.Sprintf("%s%d", mr.url, remain/2)
 		/// The handler will continue to handle the remaining configs
 		return "", http.StatusOK
 	}, nil, false)
