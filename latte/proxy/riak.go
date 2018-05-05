@@ -155,7 +155,7 @@ func (c *riakConn) PutNetAllocation(ip net.IP, cidr *net.IPNet) error {
 
 	t1 := time.Now()
 	obj := &riak.Object{
-		ContentType:     "application/json",
+		ContentType:     "plain/text",
 		Charset:         "utf-8",
 		ContentEncoding: "utf-8",
 		BucketType:      RIAK_BUCKET_TYPE,
