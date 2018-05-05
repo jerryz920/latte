@@ -105,7 +105,8 @@ func (c *MetadataProxy) netToCred(ip net.IP, lport, rport int) (string, string, 
 	}
 
 	logrus.Debug("port ", instIndex.Pmin, instIndex.Pmax, lport, rport)
-	if instIndex.Pmin == lport && instIndex.Pmax-1 == rport {
+	//// [Pmin, Pmax) is the port range, just a defense in depth
+	if instIndex.Pmin <= lport && instIndex.Pmax > rport {
 		return instIndex.P, instIndex.PP, http.StatusOK
 	} else {
 		return "", "", http.StatusUnauthorized
