@@ -288,10 +288,10 @@ func (c *riakConn) GetNetIDMap(ip net.IP, lport int, rport int) (*InstanceCred, 
 				logrus.Info("%v", string(o.Value))
 			}
 		}
+		logrus.Info("PERFRIAK GetID ", time.Now().Sub(t1).Seconds())
 		return InstanceCredFromBytes(actual.Response.Values[0].Value), nil
 	}
 	logrus.Debug("error in reading response of get net id map")
-	logrus.Info("PERFRIAK GetID ", time.Now().Sub(t1).Seconds())
 	return nil, errors.New("Unknown command")
 }
 

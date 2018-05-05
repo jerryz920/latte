@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	eurosys18 "github.com/jerryz920/conferences/latte"
 	kvstore "github.com/jerryz920/conferences/latte/kvstore"
@@ -744,10 +745,17 @@ func main() {
 		//eurosys18.RestartStore(true)
 		logrus.SetLevel(logrus.DebugLevel)
 	}
+	formatter := new(logrus.TextFormatter)
+	formatter.DisableLevelTruncation = false
+	formatter.FullTimestamp = false
+	formatter.TimestampFormat = "1 2 3:4:5.999999"
+	logrus.SetFormatter(formatter)
+
 	if err := client.newstore.Connect(riakaddr); err != nil {
 		logrus.Errorf("can not connect to riak address: %s, %s", riakaddr, err)
 		os.Exit(1)
 	}
+	time.Now()
 
 	store, err := eurosys18.NewStore("pmap", false)
 	if err != nil {
