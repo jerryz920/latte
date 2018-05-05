@@ -331,7 +331,7 @@ func (c *riakConn) GetAllNetID(ip net.IP) ([]PortRangeMap, error) {
 	}
 
 	if actual, ok := cmd.(*riak.SearchCommand); ok {
-		if len(actual.Response.Docs) == 0 {
+		if actual.Response.Docs == nil || len(actual.Response.Docs) == 0 {
 			return result, nil
 		}
 		for _, d := range actual.Response.Docs {
@@ -388,7 +388,8 @@ func (c *riakConn) SearchIDNet(uuid string) ([]PortRangeMap, error) {
 		return result, err
 	}
 	if actual, ok := cmd.(*riak.SearchCommand); ok {
-		if len(actual.Response.Docs) == 0 {
+
+		if actual.Response.Docs == nil || len(actual.Response.Docs) == 0 {
 			return result, nil
 		}
 		for _, d := range actual.Response.Docs {
