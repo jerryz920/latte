@@ -229,7 +229,7 @@ func (c *MetadataProxy) preInstanceCallHandler(mr *MetadataRequest) (string, int
 	} else {
 		imageStoreIdx = 3
 	}
-	logrus.Debug("converting IP-UUID %s", mr.OtherValues[imageStoreIdx])
+	logrus.Debug("converting IP-UUID ", mr.OtherValues[imageStoreIdx])
 	imageOwnerUUID, status := c.strNetToID(mr.OtherValues[imageStoreIdx])
 	if status != http.StatusOK {
 		return fmt.Sprintf("can not authenticate the image store service\n"), status
