@@ -387,6 +387,11 @@ func (c *riakConn) SearchIDNet(uuid string) ([]PortRangeMap, error) {
 		logrus.Debug("error in building search id to net map command")
 		return result, err
 	}
+	if err = c.Client.Execute(cmd); err != nil {
+		logrus.Debug("error executing search ID command")
+		return result, err
+	}
+
 	if actual, ok := cmd.(*riak.SearchCommand); ok {
 
 		if actual.Response.Docs == nil || len(actual.Response.Docs) == 0 {
