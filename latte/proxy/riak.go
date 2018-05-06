@@ -12,56 +12,79 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type InstanceCred struct {
-	Id  string `json:"Id_s"`
-	Pid string `json:"Pid_s"`
-}
-
 const (
-	NETMAP_PID = "Pid_s"
-	NETMAP_ID  = "Id_s"
+	NETMAP_PID  = "Pid_s"
+	NETMAP_ID   = "Id_s"
+	NETMAP_CIDR = "Cidr_s"
+	NETMAP_TYPE = "Type_s"
 )
+
+type NetMapObj struct {
+	Pid  string `json:"Id_s"`
+	PPid string `json:"Pid_s"`
+	Cidr string `json:"Cidr_s"`
+	Type string `json:"Type_s"`
+}
 
 func InstanceCredFromBytes(data []byte) *InstanceCred {
 
 	buf := bytes.NewBuffer(data)
 	decoder := json.NewDecoder(buf)
-	var inst InstanceCred
-	if err := decoder.Decode(&inst); err != nil {
-		logrus.Error("decoding Json")
+	var obj NetMapObj
+	if err := decoder.Decode(&obj); err != nil {
+		logrus.Error("decoding Json: ", err)
 		return nil
 	}
+
+	inst := InstanceCred{
+		Pid:  obj.Pid,
+		PPid: obj.PPid,
+		Type: obj.Type,
+	}
+
+	if obj.Cidr == "" {
+		inst.Cidr = nil
+	} else {
+		_, cidr, err := net.ParseCIDR(obj.Cidr)
+		if err != nil {
+			logrus.Errorf("parsing CIDR of %s: %v", obj.Cidr, err)
+			return nil
+		}
+		inst.Cidr = cidr
+	}
+
 	return &inst
 }
 
 func (i *InstanceCred) Bytes() []byte {
+	obj := NetMapObj{
+		Pid:  i.Pid,
+		PPid: i.PPid,
+		Type: i.Type,
+	}
+	if i.Cidr == nil {
+		obj.Cidr = ""
+	} else {
+		obj.Cidr = i.Cidr.String()
+	}
+
 	buf := bytes.NewBuffer(nil)
 	decoder := json.NewEncoder(buf)
-	if err := decoder.Encode(i); err != nil {
+	if err := decoder.Encode(&obj); err != nil {
 		logrus.Error("encoding Json")
 		return nil
 	}
 	return buf.Bytes()
 }
 
-type PortRangeMap struct {
-	Ip    net.IP
-	Lport int
-	Rport int
-	ID    *InstanceCred
-}
-
 type RiakConn interface {
 	Connect(addr string) error
-	PutNetAllocation(ip net.IP, cidr *net.IPNet) error
-	GetNetAllocation(ip net.IP) (*net.IPNet, error)
-	DelNetAllocation(ip net.IP) error
 	PutNetIDMap(ip net.IP, lport int, rport int, uuid *InstanceCred) error
 	GetNetIDMap(ip net.IP, lport int, rport int) (*InstanceCred, error)
 	DelNetIDMap(ip net.IP, lport int, rport int) error
-	GetAllNetID(ip net.IP) ([]PortRangeMap, error)
+	GetAllNetID(ip net.IP) ([]CachedInstance, error)
 	///
-	SearchIDNet(uuid string) ([]PortRangeMap, error)
+	SearchIDNet(uuid string) ([]CachedInstance, error)
 	Shutdown() error
 }
 
@@ -111,7 +134,7 @@ func (c *riakConn) checkIndex(indexName string) error {
 		logrus.Debug("creating index: ", err)
 		return err
 	}
-	logrus.Debugf("Index %s created", indexName)
+	logrus.Infof("Index %s created", indexName)
 
 	cmd, err = riak.NewStoreBucketTypePropsCommandBuilder().
 		WithBucketType(RIAK_BUCKET_TYPE).
@@ -122,7 +145,7 @@ func (c *riakConn) checkIndex(indexName string) error {
 		logrus.Debug("building the store bucket type property cmd ", err)
 		return err
 	}
-	logrus.Debug("associating bucket type index")
+	logrus.Info("associating bucket type index")
 	return c.Client.Execute(cmd)
 }
 
@@ -150,78 +173,7 @@ func (c *riakConn) Connect(addr string) error {
 	return c.checkIndex(RIAK_INDEX_NAME)
 }
 
-/// This can only be called for IAAS so no need to remember speaker
-func (c *riakConn) PutNetAllocation(ip net.IP, cidr *net.IPNet) error {
-
-	t1 := time.Now()
-	obj := &riak.Object{
-		ContentType:     "plain/text",
-		Charset:         "utf-8",
-		ContentEncoding: "utf-8",
-		BucketType:      RIAK_BUCKET_TYPE,
-		Bucket:          CIDR_BUCKET,
-		Key:             ip.String(),
-		Value:           []byte(cidr.String()),
-	}
-
-	cmd, err := riak.NewStoreValueCommandBuilder().WithContent(obj).Build()
-	if err != nil {
-		logrus.Debug("error in building PutNetAllocation cmd")
-		return err
-	}
-
-	err = c.Client.Execute(cmd)
-
-	logrus.Info("PERFRIAK PutAlloc ", time.Now().Sub(t1).Seconds())
-
-	return err
-}
-
-func (c *riakConn) GetNetAllocation(ip net.IP) (*net.IPNet, error) {
-
-	t1 := time.Now()
-	cmd, err := riak.NewFetchValueCommandBuilder().
-		WithBucketType(RIAK_BUCKET_TYPE).
-		WithBucket(CIDR_BUCKET).
-		WithKey(ip.String()).
-		Build()
-	if err != nil {
-		logrus.Debug("error in building fetch net allocation command")
-		return nil, err
-	}
-
-	if err = c.Client.Execute(cmd); err != nil {
-		logrus.Debug("error executing fetch net allocation command")
-		return nil, err
-	}
-
-	if actual, ok := cmd.(*riak.FetchValueCommand); ok {
-
-		if len(actual.Response.Values) == 0 {
-			logrus.Info("there is no allocation for this IP")
-			return &net.IPNet{ip, net.CIDRMask(32, 32)}, nil
-		} else if len(actual.Response.Values) > 1 {
-			logrus.Warning("there is more than one allocation: ")
-			for _, o := range actual.Response.Values {
-				logrus.Info("%v", string(o.Value))
-			}
-		}
-		netString := string(actual.Response.Values[0].Value)
-		if _, network, err := net.ParseCIDR(netString); err != nil {
-			logrus.Debug("error parsing CIDR ", netString)
-			return nil, err
-		} else {
-			logrus.Info("PERFRIAK GetAlloc ", time.Now().Sub(t1).Seconds())
-			return network, nil
-		}
-
-	}
-	logrus.Debug("error in reading response of net allocation command")
-	return nil, errors.New("Unknown command")
-}
-
 func (c *riakConn) DelNetAllocation(ip net.IP) error {
-	t1 := time.Now()
 	cmd, err := riak.NewDeleteValueCommandBuilder().
 		WithBucketType(RIAK_BUCKET_TYPE).
 		WithBucket(CIDR_BUCKET).
@@ -231,12 +183,10 @@ func (c *riakConn) DelNetAllocation(ip net.IP) error {
 		return err
 	}
 	err = c.Client.Execute(cmd)
-	logrus.Info("PERFRIAK DelAlloc ", time.Now().Sub(t1).Seconds())
 	return err
 }
 
 func (c *riakConn) PutNetIDMap(ip net.IP, lport int, rport int, uuid *InstanceCred) error {
-	t1 := time.Now()
 	obj := &riak.Object{
 		ContentType:     "application/json",
 		Charset:         "utf-8",
@@ -257,13 +207,11 @@ func (c *riakConn) PutNetIDMap(ip net.IP, lport int, rport int, uuid *InstanceCr
 		logrus.Debug("error in executing PutNetIDMap")
 		return err
 	}
-	logrus.Info("PERFRIAK PutId ", time.Now().Sub(t1).Seconds())
 	return nil
 }
 
 func (c *riakConn) GetNetIDMap(ip net.IP, lport int, rport int) (*InstanceCred, error) {
 
-	t1 := time.Now()
 	cmd, err := riak.NewFetchValueCommandBuilder().
 		WithBucketType(RIAK_BUCKET_TYPE).
 		WithBucket(ip.String()).
@@ -291,12 +239,10 @@ func (c *riakConn) GetNetIDMap(ip net.IP, lport int, rport int) (*InstanceCred, 
 		return InstanceCredFromBytes(actual.Response.Values[0].Value), nil
 	}
 	logrus.Debug("error in reading response of get net id map")
-	logrus.Info("PERFRIAK GetID ", time.Now().Sub(t1).Seconds())
 	return nil, errors.New("Unknown command")
 }
 
 func (c *riakConn) DelNetIDMap(ip net.IP, lport, rport int) error {
-	t1 := time.Now()
 	cmd, err := riak.NewDeleteValueCommandBuilder().
 		WithBucketType(RIAK_BUCKET_TYPE).
 		WithBucket(ip.String()).
@@ -306,20 +252,84 @@ func (c *riakConn) DelNetIDMap(ip net.IP, lport, rport int) error {
 		return err
 	}
 	err = c.Client.Execute(cmd)
-	logrus.Info("PERFRIAK DelID ", time.Now().Sub(t1).Seconds())
 	return err
 }
 
-func (c *riakConn) GetAllNetID(ip net.IP) ([]PortRangeMap, error) {
-	t1 := time.Now()
+func (c *riakConn) genCachedInstance(d *riak.SearchDoc) *CachedInstance {
+
+	var lport, rport int
+	if n, err := fmt.Sscanf(d.Key, "%d:%d", &lport, &rport); err != nil || n != 2 {
+		logrus.Error("Error parsing the key, bug: ", d.Key)
+		return nil
+	}
+
+	pids, ok := d.Fields[NETMAP_PID]
+	if !ok || pids == nil || len(pids) == 0 {
+		logrus.Error("missing ParentID in index: bucket=%s,key=%s, [%v]",
+			d.Bucket, d.Key, d.Fields)
+		return nil
+	}
+	pid := pids[0]
+
+	ids, ok := d.Fields[NETMAP_ID]
+	if !ok || ids == nil || len(ids) == 0 {
+		logrus.Error("missing ID in index: bucket=%s,key=%s, [%v]",
+			d.Bucket, d.Key, d.Fields)
+		return nil
+	}
+	id := ids[0]
+
+	cred := InstanceCred{
+		Pid:  id,
+		PPid: pid,
+	}
+
+	types, ok := d.Fields[NETMAP_TYPE]
+	if !ok || types == nil || len(types) == 0 {
+		logrus.Error("missing type in index: bucket=%s,key=%s, [%v]",
+			d.Bucket, d.Key, d.Fields)
+		cred.Type = NORMAL_INSTANCE_TYPE
+	} else {
+		cred.Type = types[0]
+	}
+
+	cidrs, ok := d.Fields[NETMAP_CIDR]
+	if !ok || cidrs == nil || len(cidrs) == 0 || cidrs[0] == "" {
+		logrus.Infof("missing ID in index: bucket=%s,key=%s, [%v]",
+			d.Bucket, d.Key, d.Fields)
+		cred.Cidr = nil
+	} else {
+		_, cidr, err := net.ParseCIDR(cidrs[0])
+		if err != nil {
+			logrus.Error("Error parsing CIDR ", cidrs[0])
+		}
+		cred.Cidr = cidr
+	}
+
+	ip := net.ParseIP(d.Bucket)
+	if ip == nil {
+		logrus.Errorf("Bucket name is not IP, bug: %s", d.Bucket)
+		return nil
+	}
+
+	return &CachedInstance{
+		Ip:    net.ParseIP(d.Bucket),
+		Lport: lport,
+		Rport: rport,
+		ID:    &cred,
+	}
+}
+
+func (c *riakConn) GetAllNetID(ip net.IP) ([]CachedInstance, error) {
 	query := fmt.Sprintf("%s:%s AND %s:%s", QUERY_BUCKET, ip.String(),
 		QUERY_BUCKET_TYPE, RIAK_BUCKET_TYPE)
 	cmd, err := riak.NewSearchCommandBuilder().
-		WithReturnFields(QUERY_KEY, NETMAP_PID, NETMAP_ID).
+		WithReturnFields(QUERY_KEY, NETMAP_PID, NETMAP_ID, NETMAP_CIDR,
+			NETMAP_TYPE, QUERY_BUCKET).
 		WithIndexName(RIAK_INDEX_NAME).
 		WithQuery(query).Build()
 
-	result := make([]PortRangeMap, 0)
+	result := make([]CachedInstance, 0)
 	if err != nil {
 		logrus.Debug("error in building fetch all net id map command")
 		return result, err
@@ -335,54 +345,26 @@ func (c *riakConn) GetAllNetID(ip net.IP) ([]PortRangeMap, error) {
 			return result, nil
 		}
 		for _, d := range actual.Response.Docs {
-			pids, ok := d.Fields[NETMAP_PID]
-			if !ok || pids == nil || len(pids) == 0 {
-				logrus.Error("missing ParentID in index: bucket=%s,key=%s, [%v]",
-					d.Bucket, d.Key, d.Fields)
-				continue
+			inst := c.genCachedInstance(d)
+			if inst != nil {
+				result = append(result, *inst)
 			}
-			pid := pids[0]
-
-			ids, ok := d.Fields[NETMAP_ID]
-			if !ok || ids == nil || len(ids) == 0 {
-				logrus.Error("missing ID in index: bucket=%s,key=%s, [%v]",
-					d.Bucket, d.Key, d.Fields)
-				continue
-			}
-			id := ids[0]
-			var lport, rport int
-			if n, err := fmt.Sscanf(d.Key, "%d:%d", &lport, &rport); err != nil || n != 2 {
-				logrus.Error("wrong key format of index: bucket=%s, key=%s", d.Bucket, d.Key)
-				if err != nil {
-					logrus.Error("error: ", err)
-				}
-				continue
-			}
-			result = append(result, PortRangeMap{
-				Lport: lport,
-				Rport: rport,
-				ID: &InstanceCred{
-					Pid: pid,
-					Id:  id,
-				},
-			})
 		}
-		logrus.Info("PERFRIAK GetAllID ", time.Now().Sub(t1).Seconds())
 		return result, nil
 	}
 	logrus.Debug("error in reading response of get net id map")
 	return result, errors.New("Unknown command")
 }
 
-func (c *riakConn) SearchIDNet(uuid string) ([]PortRangeMap, error) {
-	t1 := time.Now()
+func (c *riakConn) SearchIDNet(uuid string) ([]CachedInstance, error) {
 	query := fmt.Sprintf("%s:%s AND %s:%s", NETMAP_ID, uuid,
 		QUERY_BUCKET_TYPE, RIAK_BUCKET_TYPE)
 	cmd, err := riak.NewSearchCommandBuilder().
-		WithReturnFields(QUERY_KEY, QUERY_BUCKET).
+		WithReturnFields(QUERY_KEY, NETMAP_PID, NETMAP_ID, NETMAP_CIDR,
+			NETMAP_TYPE, QUERY_BUCKET).
 		WithIndexName(RIAK_INDEX_NAME).
 		WithQuery(query).Build()
-	result := make([]PortRangeMap, 0)
+	result := make([]CachedInstance, 0)
 	if err != nil {
 		logrus.Debug("error in building search id to net map command")
 		return result, err
@@ -398,27 +380,11 @@ func (c *riakConn) SearchIDNet(uuid string) ([]PortRangeMap, error) {
 			return result, nil
 		}
 		for _, d := range actual.Response.Docs {
-
-			ip := net.ParseIP(d.Bucket)
-			if ip == nil {
-				logrus.Error("wrong bucket of index: ID=%s, Bucket=%s", uuid, d.Bucket)
-				continue
+			inst := c.genCachedInstance(d)
+			if inst != nil {
+				result = append(result, *inst)
 			}
-			var lport, rport int
-			if n, err := fmt.Sscanf(d.Key, "%d:%d", &lport, &rport); err != nil || n != 2 {
-				logrus.Error("wrong key format of index: ID=%s, key=%s", uuid, d.Key)
-				if err != nil {
-					logrus.Error("error: ", err)
-				}
-				continue
-			}
-			result = append(result, PortRangeMap{
-				Ip:    ip,
-				Lport: lport,
-				Rport: rport,
-			})
 		}
-		logrus.Info("PERFRIAK SearchIDNet ", time.Now().Sub(t1).Seconds())
 		return result, nil
 	}
 	return result, errors.New("unknown command")

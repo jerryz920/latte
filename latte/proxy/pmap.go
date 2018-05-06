@@ -40,16 +40,16 @@ func (p Index) String() string {
 }
 
 type Pmap struct {
-	Identities map[string]*interval.IntTree
-	CidrAlloc  map[string]*net.IPNet
+	Identities map[string]*interval.IntTree // ip -> port range map
+	PidMap     map[string]*CachedInstance   // uuid -> ip, port range, and ppid
 	counter    int
 }
 
 func NewPmap() *Pmap {
 	return &Pmap{
 		Identities: make(map[string]*interval.IntTree),
+		PidMap:     make(map[string]*CachedInstance),
 		counter:    1,
-		CidrAlloc:  make(map[string]*net.IPNet),
 	}
 }
 
@@ -69,30 +69,43 @@ func (m *Pmap) Loaded(ip string) bool {
 
 func (m *Pmap) Unload(ip string) {
 	delete(m.Identities, ip)
-	delete(m.CidrAlloc, ip)
+	/// removing the identity mapped uuids
 }
 
-func (m *Pmap) CreatePrincipal(ip string, pmin int, pmax int, p string) {
-	m.CreatePrincipalPP(ip, pmin, pmax, p, "")
+func (m *Pmap) CreatePrincipal(ip net.IP, pmin int, pmax int, p string) {
+	m.CreatePrincipalPP(ip, pmin, pmax, p, "", nil, "")
 }
 
 /// Need to refactor all these shits, the type is disgusting, p, pp, ppppp
-func (m *Pmap) CreatePrincipalPP(ip string, pmin int, pmax int, p string, pp string) {
+func (m *Pmap) CreatePrincipalPP(ip net.IP, pmin int, pmax int, p string, pp string,
+	cidr *net.IPNet, t string) {
 	m.counter++
+	ipstr := ip.String()
 	index := PrincipalIndex{
 		Index: Index{
-			Id:   ComputeID(ip, pmin, pmax+1),
+			Id:   ComputeID(ipstr, pmin, pmax+1),
 			Pmin: pmin,
 			Pmax: pmax + 1,
 		},
 		P:  p,
 		PP: pp,
 	}
-	if tree, ok := m.Identities[ip]; ok {
+	if tree, ok := m.Identities[ipstr]; ok {
 		tree.Insert(&index, false)
 	} else {
-		m.Identities[ip] = &interval.IntTree{}
-		m.Identities[ip].Insert(&index, false)
+		m.Identities[ipstr] = &interval.IntTree{}
+		m.Identities[ipstr].Insert(&index, false)
+	}
+	m.PidMap[p] = &CachedInstance{
+		Ip:    ip,
+		Lport: pmin,
+		Rport: pmax,
+		ID: &InstanceCred{
+			Pid:  p,
+			PPid: pp,
+			Type: t,
+			Cidr: cidr,
+		},
 	}
 }
 
@@ -157,4 +170,29 @@ func (m *Pmap) GetPrincipal(ip string, port int) (string, error) {
 	} else {
 		return "", err
 	}
+}
+
+func (m *Pmap) GetCachedInstance(uuid string) (*CachedInstance, error) {
+	if inst, ok := m.PidMap[uuid]; ok {
+		return inst, nil
+	}
+	return nil, errors.New("Not Found")
+}
+
+func (m *Pmap) PutCachedInstance(inst *CachedInstance) {
+	logrus.Debugf("Caching instance: %s, %d, %d, %v", inst.Ip, inst.Lport, inst.Rport, *inst.ID)
+	m.CreatePrincipalPP(inst.Ip, inst.Lport, inst.Rport,
+		inst.ID.Pid, inst.ID.PPid, inst.ID.Cidr, inst.ID.Type)
+	m.PidMap[inst.ID.Pid] = inst
+}
+
+func (m *Pmap) DelCachedInstance(inst *CachedInstance) {
+	m.DelCachedInstanceAlt(inst.Ip, inst.Lport, inst.Rport, inst.ID.Pid)
+}
+
+func (m *Pmap) DelCachedInstanceAlt(ip net.IP, lport, rport int, pid string) {
+	logrus.Debugf("Deleting instance: %v %d %d %s", ip, lport, rport, pid)
+	ipstr := ip.String()
+	m.DeletePrincipal(ipstr, lport, rport)
+	delete(m.PidMap, pid)
 }

@@ -10,4 +10,7 @@ const (
 
 	///
 	IMAGE_STORAGE_SERVICE = "cloud"
+
+	VM_INSTANCE_TYPE     = "vm"
+	NORMAL_INSTANCE_TYPE = "normal"
 )

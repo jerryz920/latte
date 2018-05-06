@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -21,184 +19,99 @@ func NotImplemented(w http.ResponseWriter, r *http.Request) {
 	logrus.Error("Method not implemented!")
 }
 
-func EncodingMetadataRequest(mr *MetadataRequest) (*bytes.Buffer, error) {
-	buf := bytes.Buffer{}
-	encoder := json.NewEncoder(&buf)
-	if err := encoder.Encode(mr); err != nil {
-		logrus.Debug("error encoding the principal ", err)
-		return nil, err
-	}
-	return &buf, nil
-}
-
-func (c *MetadataProxy) reloadCache(ip net.IP) int {
-	if ip == nil {
-		logrus.Error("can not parse given IP address")
-		return http.StatusBadRequest
-	}
-	pmaps, err := c.newstore.GetAllNetID(ip)
-	if err != nil {
-		logrus.Error("can not authenticate the IP address, ", err)
-		return http.StatusUnauthorized
-	}
-	for _, m := range pmaps {
-		/// FIXME: this type of operations should be abstracted uniformly
-		c.pmap.CreatePrincipalPP(ip.String(), m.Lport, m.Rport, m.ID.Id, m.ID.Pid)
-	}
-	/// if it has ip -> cidr allocation, load it as well
-
-	alloc, err := c.newstore.GetNetAllocation(ip)
-	if err != nil {
-		logrus.Error("error in get net alloc for ", ip)
-		return http.StatusInternalServerError
-	}
-	if alloc != nil {
-		c.AddAllocCache(ip, alloc)
-	}
-	return http.StatusOK
-}
-
-func (c *MetadataProxy) strNetToID(id string) (string, int) {
-	p, _, status := c.strNetToCred(id)
-	return p, status
-}
-
-func (c *MetadataProxy) strNetToCred(id string) (string, string, int) {
-	if id == IaaSProvider {
-		return id, id, http.StatusOK
-	}
-	ip, port, _, status := ParseIPNew(id)
-	if status != http.StatusOK {
-		logrus.Infof("can not parse AuthID from string %s, try use as UUID", id)
-		return id, "", http.StatusOK
-	}
-
-	ipstr := ip.String()
-	if !c.pmap.Loaded(ipstr) {
-		logrus.Infof("Reloading cache for %s", ip.String())
-		status := c.reloadCache(ip)
+func (c *MetadataProxy) authenticate(principal string) (*CachedInstance, int) {
+	ip, lport, _, ok := ParseIPNew(principal)
+	if ok != http.StatusOK {
+		logrus.Debug("Principal looks like an UUID")
+		/// Try UUID
+		cachedInstance, status := c.cache.GetInstanceFromID(principal)
 		if status != http.StatusOK {
-			return "", "", status
+			logrus.Error("fail to authenticate the UUID")
+			return nil, status
 		}
-	}
-	instIndex, err := c.pmap.GetIndex(ipstr, port)
-	if instIndex == nil {
-		logrus.Debug("error in get index for IP and port ", ip, port, err)
-		return "", "", http.StatusInternalServerError
-	}
-	return instIndex.P, instIndex.PP, http.StatusOK
-}
-
-func (c *MetadataProxy) netToCred(ip net.IP, lport, rport int) (string, string, int) {
-	//	resp, err := c.client.Post(c.getUrl("/postInstance"), "application/json", buf)
-	ipstr := ip.String()
-	if !c.pmap.Loaded(ipstr) {
-		status := c.reloadCache(ip)
-		if status != http.StatusOK {
-			return "", "", status
-		}
-	}
-	instIndex, err := c.pmap.GetIndex(ipstr, lport)
-	if instIndex == nil {
-		logrus.Error("error in get index for IP and port ", ip, lport, rport, err)
-		return "", "", http.StatusInternalServerError
-	}
-
-	logrus.Debug("port ", instIndex.Pmin, instIndex.Pmax, lport, rport)
-	//// [Pmin, Pmax) is the port range, just a defense in depth
-	if instIndex.Pmin <= lport && instIndex.Pmax > rport {
-		return instIndex.P, instIndex.PP, http.StatusOK
+		return &cachedInstance, status
 	} else {
-		return "", "", http.StatusUnauthorized
+		cachedInstance, status := c.cache.GetInstanceFromNetMap(ip, lport)
+		if status != http.StatusOK {
+			logrus.Error("fail to authenticate the network address")
+			return nil, status
+		}
+		return &cachedInstance, status
 	}
 }
 
-func (c *MetadataProxy) createNetToID(ip net.IP, lport, rport int, uuid, puuid string) error {
-	c.pmap.CreatePrincipalPP(ip.String(), lport, rport, uuid, puuid)
-	return c.newstore.PutNetIDMap(ip, lport, rport, &InstanceCred{Id: uuid, Pid: puuid})
-}
-
-func (c *MetadataProxy) deleteNetToID(ip net.IP, lport, rport int) error {
-	c.pmap.DeletePrincipal(ip.String(), lport, rport)
-	return c.newstore.DelNetIDMap(ip, lport, rport)
-}
-
-func (c *MetadataProxy) AddAlloc(ip net.IP, cidr *net.IPNet) {
-	c.pmap.CidrAlloc[ip.String()] = cidr
-	c.newstore.PutNetAllocation(ip, cidr)
-}
-
-func (c *MetadataProxy) AddAllocCache(ip net.IP, cidr *net.IPNet) {
-	c.pmap.CidrAlloc[ip.String()] = cidr
-}
-
-func (c *MetadataProxy) DelAlloc(ip net.IP) {
-	delete(c.pmap.CidrAlloc, ip.String())
-	c.newstore.DelNetAllocation(ip)
-}
-
-func (c *MetadataProxy) newAuth(r *http.Request, authParent bool) (*MetadataRequest, int) {
-	mr, _, status := ReadRequest(r)
+func (c *MetadataProxy) newAuth(r *http.Request, authPrincipal bool) (*MetadataRequest, int) {
+	mr, status := ReadRequest(r)
 	mr.method = r.Method
 	mr.url = r.URL.RequestURI()
 	if status != http.StatusOK {
 		logrus.Error("error reading request in newAuth")
 		return nil, status
 	}
-	if mr.Principal == IaaSProvider {
+	if mr.Principal == IaaSProvider || !authPrincipal {
 		mr.Principal = IaaSProvider
 		return mr, status
 	}
 
-	ip, lport, rport, ok := ParseIPNew(mr.Principal)
-	if ok != http.StatusOK {
-		logrus.Info("error parsing principal as network in newAuth. We may support direct uuid in principal field in future as authid, but not now")
-		return nil, ok
-	}
-
-	uuid, puuid, status := c.netToCred(ip, lport, rport)
+	cachedInstance, status := c.authenticate(mr.Principal)
 	if status != http.StatusOK {
-		logrus.Error("converting principal to ID in newAuth")
+		logrus.Error("fail to authenticate the principal field")
 		return nil, status
 	}
-	if uuid == "" {
-		logrus.Error("can not find instance uuid")
-		return nil, http.StatusUnauthorized
+
+	remoteIp, remotePort, _, status := ParseIPNew(r.RemoteAddr)
+	if status != http.StatusOK {
+		logrus.Error("fail to parse remote address in request: Must be a bug")
+		return nil, status
 	}
-	if authParent && puuid == "" {
-		logrus.Error("can not find instance uuid")
-		return nil, http.StatusUnauthorized
+	if remoteIp.Equal(cachedInstance.Ip) || remotePort < cachedInstance.Lport ||
+		remotePort > cachedInstance.Rport {
+		////Not rejecting the request for experiments.
+		logrus.Error("incoming port is not within the range.")
 	}
-	mr.Principal = uuid
-	mr.ParentBear = puuid
-	mr.ip = ip
-	mr.lport = lport
-	mr.rport = rport
+
+	mr.Principal = cachedInstance.ID.Pid
+	mr.ParentBear = cachedInstance.ID.PPid
+	mr.ip = cachedInstance.Ip
+	mr.lport = cachedInstance.Lport
+	mr.rport = cachedInstance.Rport
+	mr.cache = cachedInstance
 	return mr, http.StatusOK
 }
 
 //// authorize if a control message will be sent by the metadata service
 /// the targetIp, targetLport, targetRport is to be checked
-func (c *MetadataProxy) authzControl(mr *MetadataRequest) int {
-	if mr.Principal == IaaSProvider {
-		return http.StatusOK
-	}
-	ip := mr.ip
-	ipstr := ip.String()
-	if !c.pmap.Loaded(ipstr) {
-		status := c.reloadCache(ip)
-		if status != http.StatusOK {
-			logrus.Error("fail to reload netmap cache")
-			return http.StatusInternalServerError
+/// the allowUUID field allows removing instances using its UUID directly
+func (c *MetadataProxy) authzControl(mr *MetadataRequest, targetAddr string, allowUUID bool) int {
+	var ok int
+	/// Still parse the address
+	mr.targetIp, mr.targetLport, mr.targetRport, ok = ParseIPNew(targetAddr)
+
+	if ok != http.StatusOK {
+		if allowUUID {
+			logrus.Infof("Can not parse target field as address, trying UUID")
+			cachedInstance, status := c.cache.GetInstanceFromID(targetAddr)
+			if status != http.StatusOK {
+				logrus.Error("fail to authenticate the UUID")
+				return status
+			}
+			mr.targetIp, mr.targetLport, mr.targetRport =
+				cachedInstance.Ip, cachedInstance.Lport, cachedInstance.Rport
+		} else {
+			logrus.Errorf("error parsing target IP %s", targetAddr)
+			return ok
 		}
 	}
 
-	if ip.Equal(mr.targetIp) && mr.lport <= mr.targetLport && mr.rport >= mr.targetRport {
+	if mr.Principal == IaaSProvider {
 		return http.StatusOK
 	}
 
+	if mr.ip.Equal(mr.targetIp) && mr.lport <= mr.targetLport && mr.rport >= mr.targetRport {
+		return http.StatusOK
+	}
 	// last resort: check if the ip is inside some allocation
-	if alloc, ok := c.pmap.CidrAlloc[ipstr]; ok {
+	if alloc := mr.cache.ID.Cidr; mr.cache.ID.Type == VM_INSTANCE_TYPE && alloc != nil {
 		if alloc.Contains(mr.targetIp) {
 			return http.StatusOK
 		}
@@ -207,34 +120,17 @@ func (c *MetadataProxy) authzControl(mr *MetadataRequest) int {
 }
 
 func (c *MetadataProxy) preInstanceCallHandler(mr *MetadataRequest) (string, int) {
-	var ok int
-	/// call to instance
-	mr.targetIp, mr.targetLport, mr.targetRport, ok = ParseIPNew(mr.OtherValues[2])
-
-	if ok != http.StatusOK {
-		return fmt.Sprintf("error parsing target IP %s", mr.OtherValues[2]), ok
-	}
-	/// authz
-	if status := c.authzControl(mr); status != http.StatusOK {
+	if status := c.authzControl(mr, mr.OtherValues[2], false); status != http.StatusOK {
 		return fmt.Sprintf("can not authorize request: %s, %s:%d-%d to %s:%d-%d\n",
 				mr.Principal, mr.ip, mr.lport, mr.rport,
 				mr.targetIp, mr.targetLport, mr.targetRport),
 			status
 	}
 
-	/// workaround: vm creation has 6 parameter, it's on 5th location, other instance on the 4th
-	var imageStoreIdx int
-	if len(mr.OtherValues) == 6 {
-		imageStoreIdx = 4
-	} else {
-		imageStoreIdx = 3
-	}
-	logrus.Debug("converting IP-UUID ", mr.OtherValues[imageStoreIdx])
-	imageOwnerUUID, status := c.strNetToID(mr.OtherValues[imageStoreIdx])
-	if status != http.StatusOK {
-		return fmt.Sprintf("can not authenticate the image store service\n"), status
-	}
-	mr.OtherValues[imageStoreIdx] = imageOwnerUUID
+	/// AuthID is not used any more, remove it
+	newRequest := append(mr.OtherValues[:2], mr.OtherValues[3:]...)
+	mr.OtherValues = newRequest
+
 	return "", http.StatusOK
 }
 
@@ -244,20 +140,18 @@ func (c *MetadataProxy) postInstanceCreationHandler(mr *MetadataRequest, data []
 		return string(data), status
 	}
 
-	/// Only IaaS provider needs to delete this
-	if mr.Principal != IaaSProvider {
-		controlMr := MetadataRequest{
-			Principal:   IaaSProvider,
-			OtherValues: []string{mr.Principal, mr.OtherValues[0]},
-			method:      "POST",
-			url:         "/postInstanceControl",
-		}
-		msg, controlStatus := c.newHandler(&controlMr, nil, nil)
-		if controlStatus != http.StatusOK {
-			return msg, controlStatus
-		}
+	instance := &CachedInstance{
+		Ip:    mr.targetIp,
+		Lport: mr.targetLport,
+		Rport: mr.targetRport,
+		ID: &InstanceCred{
+			Pid:  mr.OtherValues[0],
+			PPid: mr.Principal,
+			Type: mr.targetType,
+			Cidr: mr.targetCidr,
+		},
 	}
-	c.createNetToID(mr.targetIp, mr.targetLport, mr.targetRport, mr.OtherValues[0], mr.Principal)
+	c.cache.PutInstance(instance)
 	return fmt.Sprintf("{\"message\": \"['%s']\"}\n", mr.OtherValues[0]),
 		http.StatusOK
 }
@@ -268,17 +162,7 @@ func (c *MetadataProxy) postInstanceDeletionHandler(mr *MetadataRequest, data []
 		return string(data), status
 	}
 
-	controlMr := MetadataRequest{
-		Principal:   IaaSProvider,
-		OtherValues: []string{mr.Principal, mr.OtherValues[0]},
-		method:      "POST",
-		url:         "/delInstanceControl",
-	}
-	msg, controlStatus := c.newHandler(&controlMr, nil, nil)
-	if controlStatus != http.StatusOK {
-		return msg, controlStatus
-	}
-	c.deleteNetToID(mr.targetIp, mr.targetLport, mr.targetRport)
+	c.cache.DelInstance(mr.targetIp, mr.targetLport, mr.targetRport, mr.OtherValues[0])
 	return fmt.Sprintf("{\"message\": \"['%s']\"}\n", mr.OtherValues[0]),
 		http.StatusOK
 }
@@ -293,6 +177,10 @@ func (c *MetadataProxy) preVMInstanceCallHandler(mr *MetadataRequest) (string, i
 		return msg, http.StatusBadRequest
 	}
 	mr.targetCidr = cidr
+	mr.targetType = VM_INSTANCE_TYPE
+	/// Cidr is no longer used
+	newRequest := append(mr.OtherValues[:3], mr.OtherValues[4:]...)
+	mr.OtherValues = newRequest
 
 	return c.preInstanceCallHandler(mr)
 }
@@ -305,40 +193,14 @@ func (c *MetadataProxy) preLegacyInstanceCallHandler(mr *MetadataRequest) (strin
 		return msg, http.StatusBadRequest
 	}
 
-	/// FIXME: here is a hack to make experiments working
-	/// We do not have information about who creates the image in legacy postInstanceSet
-	/// call. So we use a predefined "ImageStore"
-	newRequest := make([]string, 4)
+	newRequest := make([]string, 2)
 	newRequest[0] = mr.OtherValues[0]
 	newRequest[1] = mr.OtherValues[1]
-	newRequest[2] = mr.OtherValues[3]
-	/// Maybe we could reuse the 2nd field in old request
-	newRequest[3] = IMAGE_STORAGE_SERVICE
 	mr.OtherValues = newRequest
 	return c.preInstanceCallHandler(mr)
 }
 
-func (c *MetadataProxy) postVMInstanceCreationHandler(mr *MetadataRequest, data []byte,
-	status int) (string, int) {
-	msg, newStatus := c.postInstanceCreationHandler(mr, data, status)
-	/// store cidr alloc
-	if newStatus == http.StatusOK {
-		c.AddAlloc(mr.targetIp, mr.targetCidr)
-	}
-	return msg, newStatus
-}
-
-func (c *MetadataProxy) postVMInstanceDeletionHandler(mr *MetadataRequest, data []byte,
-	status int) (string, int) {
-	msg, newStatus := c.postInstanceDeletionHandler(mr, data, status)
-	/// store cidr alloc
-	if newStatus == http.StatusOK {
-		c.DelAlloc(mr.targetIp)
-	}
-	return msg, newStatus
-}
-
-func (c *MetadataProxy) postInstance(w http.ResponseWriter, r *http.Request) {
+func (c *MetadataProxy) createInstance(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, c.preInstanceCallHandler,
 		c.postInstanceCreationHandler, true)
@@ -346,7 +208,7 @@ func (c *MetadataProxy) postInstance(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(msg))
 }
 
-func (c *MetadataProxy) postInstanceLegacy(w http.ResponseWriter, r *http.Request) {
+func (c *MetadataProxy) createInstanceLegacy(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, c.preLegacyInstanceCallHandler,
 		c.postInstanceCreationHandler, true)
@@ -354,10 +216,10 @@ func (c *MetadataProxy) postInstanceLegacy(w http.ResponseWriter, r *http.Reques
 	w.Write([]byte(msg))
 }
 
-func (c *MetadataProxy) postVMInstance(w http.ResponseWriter, r *http.Request) {
+func (c *MetadataProxy) createVMInstance(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, c.preVMInstanceCallHandler,
-		c.postVMInstanceCreationHandler, false)
+		c.postInstanceCreationHandler, true)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
@@ -373,21 +235,21 @@ func (c *MetadataProxy) deleteInstance(w http.ResponseWriter, r *http.Request) {
 func (c *MetadataProxy) deleteVMInstance(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, c.preVMInstanceCallHandler,
-		c.postVMInstanceDeletionHandler, true)
+		c.postInstanceDeletionHandler, true)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
 
-func (c *MetadataProxy) postLinkImageOwner(w http.ResponseWriter, r *http.Request) {
+func (c *MetadataProxy) createImageLink(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
-		creator, status := c.strNetToID(mr.OtherValues[0])
+		creatorInstance, status := c.authenticate(mr.OtherValues[0])
 		if status != http.StatusOK {
 			return fmt.Sprintf("cannot authenticate Image creator\n"), status
 		}
-		mr.OtherValues[0] = creator
+		mr.OtherValues[0] = creatorInstance.ID.Pid
 		return "", http.StatusOK
-	}, nil, false)
+	}, nil, true)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
@@ -396,45 +258,57 @@ func (c *MetadataProxy) lazyDeleteInstance(w http.ResponseWriter, r *http.Reques
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r,
 		func(mr *MetadataRequest) (string, int) {
-			portmaps, err := c.newstore.SearchIDNet(mr.OtherValues[0])
-			/// in theory we should start multiple remove calls but now we assume only one
-			if len(portmaps) < 1 || err != nil {
-				msg := fmt.Sprint("error in searching ID to net map. Should have at least one. err=", err)
-				return msg, http.StatusInternalServerError
+			if status := c.authzControl(mr, mr.OtherValues[0], true); status != http.StatusOK {
+				return fmt.Sprintf("can not authorize request: %s, %s:%d-%d to %s:%d-%d\n",
+						mr.Principal, mr.ip, mr.lport, mr.rport,
+						mr.targetIp, mr.targetLport, mr.targetRport),
+					status
 			}
-			mr.targetIp = portmaps[0].Ip
-			mr.targetLport = portmaps[0].Lport
-			mr.targetRport = portmaps[0].Rport
+			mr.targetType = NORMAL_INSTANCE_TYPE
+			mr.targetCidr = nil
 			return "", http.StatusOK
 		},
-		func(mr *MetadataRequest, data []byte, status int) (string, int) {
-			/// Only non-VM instance needs to delete it
-			if mr.Principal != IaaSProvider {
-				controlMr := MetadataRequest{
-					Principal:   IaaSProvider,
-					OtherValues: []string{mr.Principal, mr.OtherValues[0]},
-					method:      "POST",
-					url:         "/delInstanceControl",
-				}
-				msg, controlStatus := c.newHandler(&controlMr, nil, nil)
-				if controlStatus != http.StatusOK {
-					return msg, controlStatus
-				}
-			} else {
-				/// VMs need to have allocation deleted
-				c.DelAlloc(mr.targetIp)
-			}
-			c.deleteNetToID(mr.targetIp, mr.targetLport, mr.targetRport)
-			return "", http.StatusOK
-		},
+		c.postInstanceDeletionHandler,
 		true,
 	)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
-func (c *MetadataProxy) postInstanceConfig(w http.ResponseWriter, r *http.Request) {
+
+func (c *MetadataProxy) createMembership(w http.ResponseWriter, r *http.Request) {
+	SetCommonHeader(w)
+	msg, status := c.newHandlerUnwrapped(r,
+		func(mr *MetadataRequest) (string, int) {
+			memberInstance, status := c.authenticate(mr.OtherValues[1])
+			if status != http.StatusOK {
+				return fmt.Sprintf("cannot authenticate Image creator\n"), status
+			}
+			mr.OtherValues[1] = memberInstance.ID.Pid
+			return "", http.StatusOK
+		},
+		nil, true,
+	)
+
+	w.WriteHeader(status)
+	w.Write([]byte(msg))
+}
+
+func (c *MetadataProxy) createInstanceConfig(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
+
+		cachedInstance, status := c.authenticate(mr.OtherValues[0])
+		if status != http.StatusOK {
+			return fmt.Sprintf("Fail to authenticate the instance %s",
+				mr.OtherValues[0]), status
+		}
+		if mr.Principal != cachedInstance.ID.PPid {
+			return fmt.Sprintf("Config can only be published by host instance:"+
+					"Speaker: %s, Pid: %s, Saved-PPid: %s", mr.Principal,
+					cachedInstance.ID.Pid, cachedInstance.ID.PPid),
+				http.StatusUnauthorized
+		}
+		mr.OtherValues[0] = cachedInstance.ID.Pid
 
 		remain := len(mr.OtherValues) - 1
 		current := 1 /// skip the instance ID.
@@ -463,20 +337,21 @@ func (c *MetadataProxy) postInstanceConfig(w http.ResponseWriter, r *http.Reques
 		mr.url = fmt.Sprintf("%s%d", mr.url, remain/2)
 		/// The handler will continue to handle the remaining configs
 		return "", http.StatusOK
-	}, nil, false)
+	}, nil, true)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
 
-func (c *MetadataProxy) handleCheck(w http.ResponseWriter, r *http.Request) {
+func (c *MetadataProxy) handleCheckInstance(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
 		/// convert otherValues[0] to uuid
-		uuid, status := c.strNetToID(mr.OtherValues[0])
+		cache, status := c.authenticate(mr.OtherValues[0])
 		if status != http.StatusOK {
 			return fmt.Sprintf("target not found %s", mr.OtherValues[0]), status
 		}
-		mr.OtherValues[0] = uuid
+		mr.OtherValues[0] = cache.ID.Pid
+		mr.ParentBear = cache.ID.PPid
 		return "", http.StatusOK
 	}, nil, false)
 	w.WriteHeader(status)
@@ -485,14 +360,15 @@ func (c *MetadataProxy) handleCheck(w http.ResponseWriter, r *http.Request) {
 
 func (c *MetadataProxy) handleOther(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
-	msg, status := c.newHandlerUnwrapped(r, nil, nil, false)
+	msg, status := c.newHandlerUnwrapped(r, nil, nil, true)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
 
 func (c *MetadataProxy) newHandlerUnwrapped(r *http.Request, preHook func(*MetadataRequest) (string, int),
-	postHook func(*MetadataRequest, []byte, int) (string, int), authParent bool) (string, int) {
-	metareq, status := c.newAuth(r, authParent)
+	postHook func(*MetadataRequest, []byte, int) (string, int), authPrincipal bool) (string, int) {
+	/// FIXME: authparent is no longer used
+	metareq, status := c.newAuth(r, authPrincipal)
 	if status != http.StatusOK {
 		return "can not authenticate request\n", status
 	}
@@ -558,16 +434,20 @@ func (c *MetadataProxy) newHandler(mr *MetadataRequest, preHook func(*MetadataRe
 
 func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 
-	server.AddRoute("/postInstance", c.postInstance, "")
-	server.AddRoute("/postInstanceSet", c.postInstanceLegacy, "")
+	server.AddRoute("/postInstance", c.createInstance, "")
+	server.AddRoute("/postInstanceSet", c.createInstanceLegacy, "")
 	server.AddRoute("/retractInstanceSet", c.deleteInstance, "")
-	server.AddRoute("/postVMInstance", c.postVMInstance, "")
-	server.AddRoute("/postLinkImageOwner", c.postLinkImageOwner, "")
+	server.AddRoute("/postVMInstance", c.createVMInstance, "")
+	server.AddRoute("/postLinkImageOwner", c.createImageLink, "")
 	server.AddRoute("/delInstance", c.deleteInstance, "")
 	server.AddRoute("/delVMInstance", c.deleteVMInstance, "")
 	server.AddRoute("/lazyDeleteInstance", c.lazyDeleteInstance, "")
 	/// Handling any num of configs
-	server.AddRoute("/postInstanceConfig", c.postInstanceConfig, "")
+	server.AddRoute("/postInstanceConfig", c.createInstanceConfig, "")
+
+	/// The proxy to do here is similar, just authenticate the IDs
+	server.AddRoute("/postAckMembership", c.createMembership, "")
+	server.AddRoute("/postMembership", c.createMembership, "")
 
 	otherMethods := []string{
 		"/postCluster",
@@ -593,7 +473,6 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 		"/delVpcConfig3",
 		"/delVpcConfig4",
 		"/delVpcConfig5",
-		"/postAckMembership",
 		"/postConditionalEndorsement",
 		"/postEndorsement",
 		//"/postInstanceAuthID",
@@ -604,8 +483,7 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 		"/postInstanceConfig3",
 		"/postInstanceConfig4",
 		"/postInstanceConfig5",
-		"/postInstanceControl",
-		"/postMembership",
+		//"/postInstanceControl",
 		"/postParameterizedConnection",
 		"/postParameterizedEndorsement",
 		"/postVpcConfig1",
@@ -620,12 +498,12 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 		"/checkCodeQuality",
 		"/checkContainerIsolation",
 		"/checkFetch",
-		"/checkTrustedCode",
+		//	"/checkTrustedCode", Should use some other check
 		"/checkTrustedConnections",
 	}
 
 	for _, method := range checkMethods {
-		server.AddRoute(method, c.handleCheck, "")
+		server.AddRoute(method, c.handleCheckInstance, "")
 	}
 	for _, method := range otherMethods {
 		server.AddRoute(method, c.handleOther, "")
