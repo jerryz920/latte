@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	jhttp "github.com/jerryz920/utils/goutils/http"
@@ -20,6 +21,11 @@ func NotImplemented(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *MetadataProxy) authenticate(principal string) (*CachedInstance, int) {
+	if strings.HasPrefix(principal, NOAUTH_PREFIX) {
+		logrus.Info("noauth header found!")
+		return nil, http.StatusUnauthorized
+	}
+
 	ip, lport, _, ok := ParseIPNew(principal)
 	if ok != http.StatusOK {
 		logrus.Debug("Principal looks like an UUID")
@@ -48,15 +54,20 @@ func (c *MetadataProxy) newAuth(r *http.Request, authPrincipal bool) (*MetadataR
 		logrus.Error("error reading request in newAuth")
 		return nil, status
 	}
-	if mr.Principal == IaaSProvider || !authPrincipal {
+	if mr.Principal == IaaSProvider {
 		mr.Principal = IaaSProvider
 		return mr, status
 	}
 
 	cachedInstance, status := c.authenticate(mr.Principal)
 	if status != http.StatusOK {
-		logrus.Error("fail to authenticate the principal field")
-		return nil, status
+		if authPrincipal {
+			logrus.Error("fail to authenticate the principal field")
+			return nil, status
+		} else {
+			logrus.Info("principal not authenticated, proceed as external principal")
+			return mr, http.StatusOK
+		}
 	}
 
 	remoteIp, remotePort, _, status := ParseIPNew(r.RemoteAddr)
@@ -119,12 +130,33 @@ func (c *MetadataProxy) authzControl(mr *MetadataRequest, targetAddr string, all
 	return http.StatusUnauthorized
 }
 
+func (c *MetadataProxy) workaroundEmptyTrustHub(mr *MetadataRequest) {
+	/// Creating VM instance
+	if len(mr.OtherValues) == 4 && mr.Principal == IaaSProvider {
+		logrus.Warn("Workaround VM creation: ", mr.OtherValues)
+		mr.OtherValues = append(mr.OtherValues, DEFAULT_VM_TRUST_HUB)
+	} else if len(mr.OtherValues) == 3 {
+		logrus.Warn("Workaround Instance creation", mr.OtherValues)
+		mr.OtherValues = append(mr.OtherValues, DEFAULT_CTN_TRUST_HUB)
+	}
+}
+
 func (c *MetadataProxy) preInstanceCallHandler(mr *MetadataRequest) (string, int) {
 	if status := c.authzControl(mr, mr.OtherValues[2], false); status != http.StatusOK {
 		return fmt.Sprintf("can not authorize request: %s, %s:%d-%d to %s:%d-%d\n",
 				mr.Principal, mr.ip, mr.lport, mr.rport,
 				mr.targetIp, mr.targetLport, mr.targetRport),
 			status
+	}
+	c.workaroundEmptyTrustHub(mr)
+	/// Authenticate the trust hub link if necessary
+	trustHubIndex := len(mr.OtherValues) - 1
+	cachedInstance, status := c.authenticate(mr.OtherValues[trustHubIndex])
+	if status != http.StatusOK {
+		logrus.Infof("can not authenticate %s, use as normal ID",
+			mr.OtherValues[trustHubIndex])
+	} else {
+		mr.OtherValues[trustHubIndex] = cachedInstance.ID.Pid
 	}
 
 	/// AuthID is not used any more, remove it
@@ -240,16 +272,41 @@ func (c *MetadataProxy) deleteVMInstance(w http.ResponseWriter, r *http.Request)
 	w.Write([]byte(msg))
 }
 
-func (c *MetadataProxy) createImageLink(w http.ResponseWriter, r *http.Request) {
+func (c *MetadataProxy) createEndorsementLink(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
 		creatorInstance, status := c.authenticate(mr.OtherValues[0])
 		if status != http.StatusOK {
-			return fmt.Sprintf("cannot authenticate Image creator\n"), status
+			logrus.Info("Can not authenticate endorser as instance, proceed as external principal")
+		} else {
+			mr.OtherValues[0] = creatorInstance.ID.Pid
 		}
-		mr.OtherValues[0] = creatorInstance.ID.Pid
 		return "", http.StatusOK
-	}, nil, true)
+	}, nil, false)
+	w.WriteHeader(status)
+	w.Write([]byte(msg))
+}
+
+func (c *MetadataProxy) createEndorsement(w http.ResponseWriter, r *http.Request) {
+	SetCommonHeader(w)
+	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
+
+		// authenticated as instance, replace the endorsement method
+		// /postEndorsement -> /postInstanceEndorsement
+		if mr.cache != nil {
+			mr.url = strings.Replace(mr.url, "/post", "/postInstance", 1)
+		}
+		// not authenticated
+
+		// We do not want the power of instance endorsement so far.
+		//creatorInstance, status := c.authenticate(mr.OtherValues[0])
+		//if status != http.StatusOK {
+		//	logrus.Info("Can not authenticate endorser as instance, proceed as external principal")
+		//} else {
+		//	mr.OtherValues[0] = creatorInstance.ID.Pid
+		//}
+		return "", http.StatusOK
+	}, nil, false)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
@@ -333,6 +390,7 @@ func (c *MetadataProxy) createInstanceConfig(w http.ResponseWriter, r *http.Requ
 			current += 10
 			remain -= 10
 		}
+		mr.OtherValues = append(mr.OtherValues[:1], mr.OtherValues[current:]...)
 		mr.method = "POST"
 		mr.url = fmt.Sprintf("%s%d", mr.url, remain/2)
 		/// The handler will continue to handle the remaining configs
@@ -346,6 +404,10 @@ func (c *MetadataProxy) handleCheckInstance(w http.ResponseWriter, r *http.Reque
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
 		/// convert otherValues[0] to uuid
+		if mr.OtherValues[0] == IaaSProvider {
+			return "", http.StatusOK
+		}
+
 		cache, status := c.authenticate(mr.OtherValues[0])
 		if status != http.StatusOK {
 			return fmt.Sprintf("target not found %s", mr.OtherValues[0]), status
@@ -361,6 +423,16 @@ func (c *MetadataProxy) handleCheckInstance(w http.ResponseWriter, r *http.Reque
 func (c *MetadataProxy) handleOther(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, nil, nil, true)
+	w.WriteHeader(status)
+	w.Write([]byte(msg))
+}
+
+// Does not authenticate the speaker. This means we don't trust it. It can create
+// link that points to wrong content. But as long as the end endorsements can be
+// authenticated, it is all right.
+func (c *MetadataProxy) handleOtherNoAuth(w http.ResponseWriter, r *http.Request) {
+	SetCommonHeader(w)
+	msg, status := c.newHandlerUnwrapped(r, nil, nil, false)
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 }
@@ -438,7 +510,6 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 	server.AddRoute("/postInstanceSet", c.createInstanceLegacy, "")
 	server.AddRoute("/retractInstanceSet", c.deleteInstance, "")
 	server.AddRoute("/postVMInstance", c.createVMInstance, "")
-	server.AddRoute("/postLinkImageOwner", c.createImageLink, "")
 	server.AddRoute("/delInstance", c.deleteInstance, "")
 	server.AddRoute("/delVMInstance", c.deleteVMInstance, "")
 	server.AddRoute("/lazyDeleteInstance", c.lazyDeleteInstance, "")
@@ -448,6 +519,13 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 	/// The proxy to do here is similar, just authenticate the IDs
 	server.AddRoute("/postAckMembership", c.createMembership, "")
 	server.AddRoute("/postMembership", c.createMembership, "")
+	/// No need to authenticate the principal, as only linking
+	/// inside will be used.
+	server.AddRoute("/postEndorsementLink", c.createEndorsementLink, "")
+	server.AddRoute("/postTrustHubLink", c.handleOtherNoAuth, "")
+	server.AddRoute("/postEndorsement", c.createEndorsement, "")
+	server.AddRoute("/postConditionalEndorsement", c.createEndorsement, "")
+	server.AddRoute("/postParameterizedEndorsement", c.createEndorsement, "")
 
 	otherMethods := []string{
 		"/postCluster",
@@ -474,7 +552,6 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 		"/delVpcConfig4",
 		"/delVpcConfig5",
 		"/postConditionalEndorsement",
-		"/postEndorsement",
 		//"/postInstanceAuthID",
 		//"/postInstanceAuthKey",
 		//"/postInstanceCidrConfig",
@@ -498,6 +575,13 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 		"/checkCodeQuality",
 		"/checkContainerIsolation",
 		"/checkFetch",
+		"/checkAttester",
+		"/checkBuilder",
+		"/checkConfig",
+		"/checkProperty",
+		"/checkLaunches",
+		"/checkBuildsFrom",
+		"/checkEndorse",
 		//	"/checkTrustedCode", Should use some other check
 		"/checkTrustedConnections",
 	}
