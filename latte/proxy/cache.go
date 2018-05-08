@@ -29,26 +29,39 @@ type Cache interface {
 	GetInstanceFromID(pid string) (CachedInstance, int)
 	PutInstance(inst *CachedInstance) int
 	DelInstance(ip net.IP, lport, rport int, pid string) int
+	SetLog(*logrus.Logger)
 }
 
 type cacheImpl struct {
 	sync.Mutex
 	conn RiakConn
 	pmap *Pmap
+	id   int
+	log  *logrus.Logger
 }
 
+var (
+	id int = 0
+)
+
 func NewCache(c RiakConn) Cache {
+	id++
 	return &cacheImpl{
 		conn: c,
 		pmap: NewPmap(),
+		id:   id,
 	}
+}
+
+func (c *cacheImpl) SetLog(l *logrus.Logger) {
+	c.log = l
 }
 
 func (c *cacheImpl) reloadCache(ip net.IP) int {
 	t1 := time.Now()
 	pmaps, err := c.conn.GetAllNetID(ip)
 	if err != nil {
-		logrus.Debugf("reloading cache for %s: %s", ip, err)
+		c.log.Debugf("%d reloading cache for %s: %s", c.id, ip, err)
 		return http.StatusInternalServerError
 	}
 	for _, inst := range pmaps {
@@ -58,7 +71,7 @@ func (c *cacheImpl) reloadCache(ip net.IP) int {
 		tmp := inst
 		c.pmap.PutCachedInstance(&tmp)
 	}
-	logrus.Info("PERFCACHE RELOAD ", time.Now().Sub(t1).Seconds())
+	c.log.Infof("%d PERFCACHE RELOAD %f", c.id, time.Now().Sub(t1).Seconds())
 	return http.StatusOK
 
 }
@@ -69,12 +82,12 @@ func (c *cacheImpl) reloadUUID(uuid string) (*CachedInstance, int) {
 	pmap, err := c.conn.SearchIDNet(uuid)
 	/// In theory there should be one
 	if err != nil {
-		logrus.Debug("searchIDNet failure ", err)
+		c.log.Debug("searchIDNet failure ", err)
 		return nil, http.StatusInternalServerError
 	}
 
 	if pmap == nil || len(pmap) == 0 {
-		logrus.Debug("searchIDNet, not found")
+		c.log.Debug("searchIDNet, not found")
 		return nil, http.StatusNotFound
 	}
 
@@ -88,7 +101,7 @@ func (c *cacheImpl) reloadUUID(uuid string) (*CachedInstance, int) {
 		logrus.Warningf("Inconsistency in cache state, the IP %s is already loaded but UUID %s not found in cache.",
 			pmap[0].Ip, uuid)
 	}
-	logrus.Info("PERFCACHE RELOAD-ID ", time.Now().Sub(t1).Seconds())
+	c.log.Info("PERFCACHE RELOAD-ID ", time.Now().Sub(t1).Seconds())
 
 	/// Same design with load cache using IP.
 	return &pmap[0], c.reloadCache(pmap[0].Ip)
@@ -103,30 +116,30 @@ func (c *cacheImpl) GetInstanceFromNetMap(ip net.IP, port int) (CachedInstance, 
 
 	index, err := c.pmap.GetIndex(ipstr, port)
 	if err != nil {
-		logrus.Debug("GetInstanceFromNetMap, getting index: ", err)
+		c.log.Debug("GetInstanceFromNetMap, getting index: ", err)
 		return CachedInstance{}, http.StatusInternalServerError
 	}
 	if index == nil {
 		/// reload the cache and see if we can find it
 		if status := c.reloadCache(ip); status != http.StatusOK {
-			logrus.Debug("err GetInstanceFromNetMap, visiting backend store")
+			c.log.Debug("err GetInstanceFromNetMap, visiting backend store")
 			return CachedInstance{}, status
 		}
 		index, err = c.pmap.GetIndex(ipstr, port)
 
 		if err != nil {
-			logrus.Debug("err GetInstanceFromNetMap, after cached loaded: ", err)
+			c.log.Debug("err GetInstanceFromNetMap, after cached loaded: ", err)
 			return CachedInstance{}, http.StatusInternalServerError
 		}
 		/// Not found
 		if index == nil {
-			logrus.Debug("Not found the instance")
+			c.log.Debug("Not found the instance")
 			return CachedInstance{}, http.StatusNotFound
 		}
 	}
 
 	result, _ := c.pmap.GetCachedInstance(index.P)
-	logrus.Info("PERFCACHE GetInstanceFromNetMap ", time.Now().Sub(t1).Seconds())
+	c.log.Info("PERFCACHE GetInstanceFromNetMap ", time.Now().Sub(t1).Seconds())
 	//// result should never be null!
 	return *result.Copy(), http.StatusOK
 
@@ -139,14 +152,14 @@ func (c *cacheImpl) GetInstanceFromID(pid string) (CachedInstance, int) {
 	defer c.Unlock()
 	inst, err := c.pmap.GetCachedInstance(pid)
 	if err != nil {
-		logrus.Debugf("Looking up UUID %s from backend", pid)
+		c.log.Debugf("Looking up UUID %s from backend", pid)
 		inst, status = c.reloadUUID(pid)
 		if status != http.StatusOK {
 			return CachedInstance{}, status
 		}
 	}
 	/// result won't be nil, error will be returned for not found
-	logrus.Info("PERFCACHE GetInstanceFromUUID ", time.Now().Sub(t1).Seconds())
+	c.log.Info("PERFCACHE GetInstanceFromUUID ", time.Now().Sub(t1).Seconds())
 	return *inst, http.StatusOK
 }
 
@@ -162,10 +175,10 @@ func (c *cacheImpl) PutInstance(inst *CachedInstance) int {
 	// instance.
 	c.pmap.PutCachedInstance(inst)
 	if err := c.conn.PutNetIDMap(inst.Ip, inst.Lport, inst.Rport, inst.ID); err != nil {
-		logrus.Debug("PutInstance error in PutNetIDMap: ", err)
+		c.log.Debug("PutInstance error in PutNetIDMap: ", err)
 		return http.StatusInternalServerError
 	}
-	logrus.Info("PERFCACHE PutInstance ", time.Now().Sub(t1).Seconds())
+	c.log.Info("PERFCACHE PutInstance ", time.Now().Sub(t1).Seconds())
 	return http.StatusOK
 }
 
@@ -176,9 +189,9 @@ func (c *cacheImpl) DelInstance(ip net.IP, lport, rport int, pid string) int {
 	c.pmap.DelCachedInstanceAlt(ip, lport, rport, pid)
 	/// We may just delete in async way.
 	if err := c.conn.DelNetIDMap(ip, lport, rport); err != nil {
-		logrus.Debug("DelInstance error in DelNetIDMap: ", err)
+		c.log.Debug("DelInstance error in DelNetIDMap: ", err)
 		return http.StatusInternalServerError
 	}
-	logrus.Info("PERFCACHE DelInstance ", time.Now().Sub(t1).Seconds())
+	c.log.Info("PERFCACHE DelInstance ", time.Now().Sub(t1).Seconds())
 	return http.StatusOK
 }

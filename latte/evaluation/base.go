@@ -48,7 +48,7 @@ func (m *MetadataClient) Request(cmd string, principal string, otherValues ...st
 	}
 	ts := time.Now().Sub(tx).Seconds()
 	logrus.WithField("name", cmd).WithField("speaker", principal).
-		WithField("time", ts).Info(string(msg))
+		WithField("time", ts).WithField("detail", otherValues).Info(string(msg))
 	return nil
 }
 

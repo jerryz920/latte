@@ -14,7 +14,7 @@ workdir=`pwd`
 
 config() {
   args=""
-  for n in 1 2 3 4; do
+  for n in 1; do
     args="$args --addr http://compute4:$((19850+n))"
   done
 
@@ -33,14 +33,14 @@ config() {
 }
 
 run() {
-  echo "starting $* exps"
-  echo "restarting riak"
-  cd $riakdir
-  bash all-restart.sh
-  sleep 10
-  echo "starting metadata service"
-  ssh compute4 "cd $msdir; bash stop.sh 4; bash start.sh 4"
-  sleep 20
+#  echo "starting $* exps"
+#  echo "restarting riak"
+#  cd $riakdir
+#  bash all-restart.sh
+#  sleep 10
+#  echo "starting metadata service"
+#  ssh compute4 "cd $msdir; bash stop.sh 4; bash start.sh 4"
+#  sleep 20
   args=`config $*`
   cd $workdir
   echo "running ./exp1 $args"
@@ -70,20 +70,20 @@ run() {
 #  done
 #done
 # vary nvm
-for n in 1024; do
+for n in 128; do
   for j in 1; do
-    run 4 $n 3 1 $j
-    run 4 $n 3 0 $j
+    run 64 $n 3 1 $j
+    #run 64 $n 3 0 $j
   done
 done
 
 # vary level
-for n in 1; do
-  for j in 1; do
-    run 4 1024 $n 1 $j
-    run 4 1024 $n 0 $j
-  done
-done
+#for n in 1; do
+#  for j in 1; do
+#    run 4 1024 $n 1 $j
+#    run 4 1024 $n 0 $j
+#  done
+#done
 
 # vary nvm
 #for n in 128 256 512 1024; do
