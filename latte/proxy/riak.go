@@ -78,7 +78,7 @@ func (i *InstanceCred) Bytes() []byte {
 }
 
 type RiakConn interface {
-	Connect(addr string) error
+	Connect(addrs []string) error
 	PutNetIDMap(ip net.IP, lport int, rport int, uuid *InstanceCred) error
 	GetNetIDMap(ip net.IP, lport int, rport int) (*InstanceCred, error)
 	DelNetIDMap(ip net.IP, lport int, rport int) error
@@ -89,14 +89,14 @@ type RiakConn interface {
 }
 
 type riakConn struct {
-	Addr   string
+	Addrs  []string
 	Client *riak.Client
 	/// TODO: adding settings for replications
 }
 
 func NewRiakConn() RiakConn {
 	//riak.EnableDebugLogging = true
-	return &riakConn{Addr: "", Client: nil}
+	return &riakConn{Addrs: []string{}, Client: nil}
 }
 
 func NetMapKey(lport, rport int) string {
@@ -149,22 +149,22 @@ func (c *riakConn) checkIndex(indexName string) error {
 	return c.Client.Execute(cmd)
 }
 
-func (c *riakConn) Connect(addr string) error {
+func (c *riakConn) Connect(addrs []string) error {
 	if c.Client != nil {
 		if err := c.Client.Stop(); err != nil {
-			logrus.Errorf("can not stop previous riak conn to ", c.Addr)
+			logrus.Errorf("can not stop previous riak conn to ", c.Addrs)
 			return err
 		}
 	}
 	options := riak.NewClientOptions{
-		RemoteAddresses: []string{addr},
+		RemoteAddresses: addrs,
 	}
 	client, err := riak.NewClient(&options)
 	if err != nil {
-		logrus.Errorf("can not connect to given address %s", addr)
+		logrus.Errorf("can not connect to given address %v", addrs)
 		return err
 	}
-	c.Addr = addr
+	c.Addrs = addrs
 	c.Client = client
 	logrus.Info("Checking index on the bucket type")
 
