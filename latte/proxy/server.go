@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	eurosys18 "github.com/jerryz920/conferences/latte"
 	"github.com/jerryz920/conferences/latte/kvstore"
 	logrus "github.com/sirupsen/logrus"
 )
@@ -127,26 +127,45 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Metadata Service Proxy"))
 }
 
-func main() {
+type Addresses []string
 
+//// Configurations
+var (
+	RiakAddrs  = make(Addresses, 0)
+	ConfDebug  bool
+	SafeAddr   string
+	ListenAddr string
+)
+
+func (s *Addresses) String() string {
+	return fmt.Sprintf("%v", *s)
+}
+
+func (s *Addresses) Set(val string) error {
+	_, err := net.ResolveTCPAddr("tcp", val)
+	if err != nil {
+		logrus.Info("error parsing tcp address: ", val)
+		return err
+	}
+	*s = append(*s, val)
+	return nil
+}
+
+func config() {
+	flag.Var(&RiakAddrs, "addr", "riak addresses")
+	flag.BoolVar(&ConfDebug, "debug", false, "set debug output")
+	flag.StringVar(&SafeAddr, "safe", "localhost:7777", "set safe address")
+	flag.StringVar(&ListenAddr, "listen", "0.0.0.0:19851", "listen address")
 	flag.Parse()
-	args := flag.Args()
-	addr := ""
-	if len(args) < 1 {
-		logrus.Info("no server address provided, debug mode")
-	} else {
-		addr = args[0]
-	}
+}
 
-	logrus.SetLevel(logrus.InfoLevel)
-	riakaddr := "localhost:8087"
-	if len(args) >= 2 {
-		riakaddr = args[1]
-	}
+func main() {
+	config()
 
-	if len(args) >= 3 {
-		//eurosys18.RestartStore(true)
+	if ConfDebug {
 		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
 	}
 	formatter := new(logrus.TextFormatter)
 	formatter.DisableLevelTruncation = false
@@ -154,9 +173,14 @@ func main() {
 	formatter.TimestampFormat = "1 2 3:4:5.999999"
 	logrus.SetFormatter(formatter)
 
+	if len(RiakAddrs) == 0 {
+		RiakAddrs = []string{"localhost:8087"}
+	}
+	logrus.Infof("Riakaddresses : %v", RiakAddrs)
+
 	riakClient := NewRiakConn()
-	if err := riakClient.Connect(riakaddr); err != nil {
-		logrus.Errorf("can not connect to riak address: %s, %s", riakaddr, err)
+	if err := riakClient.Connect(RiakAddrs); err != nil {
+		logrus.Errorf("can not connect to riak address: %v, %s", RiakAddrs, err)
 		os.Exit(1)
 	}
 	logrus.Info("Riak connected! Starting the API server")
@@ -167,14 +191,14 @@ func main() {
 			},
 		},
 		cache: NewCache(riakClient),
-		addr:  addr,
+		addr:  SafeAddr,
 	}
 	server := kvstore.NewKvStore(rootHandler)
 
 	SetupNewAPIs(&client, server)
 	//// New APIs
 
-	if err := server.ListenAndServe(eurosys18.MetadataProxyAddress); err != nil {
+	if err := server.ListenAndServe(ListenAddr); err != nil {
 		logrus.Fatal("can not listen on address: ", err)
 	}
 }

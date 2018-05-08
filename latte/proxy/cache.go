@@ -32,9 +32,9 @@ type Cache interface {
 }
 
 type cacheImpl struct {
+	sync.Mutex
 	conn RiakConn
 	pmap *Pmap
-	lock sync.Mutex
 }
 
 func NewCache(c RiakConn) Cache {
@@ -97,8 +97,8 @@ func (c *cacheImpl) reloadUUID(uuid string) (*CachedInstance, int) {
 
 func (c *cacheImpl) GetInstanceFromNetMap(ip net.IP, port int) (CachedInstance, int) {
 	t1 := time.Now()
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.Lock()
+	defer c.Unlock()
 	ipstr := ip.String()
 
 	index, err := c.pmap.GetIndex(ipstr, port)
@@ -135,8 +135,8 @@ func (c *cacheImpl) GetInstanceFromNetMap(ip net.IP, port int) (CachedInstance, 
 func (c *cacheImpl) GetInstanceFromID(pid string) (CachedInstance, int) {
 	t1 := time.Now()
 	var status int
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.Lock()
+	defer c.Unlock()
 	inst, err := c.pmap.GetCachedInstance(pid)
 	if err != nil {
 		logrus.Debugf("Looking up UUID %s from backend", pid)
@@ -154,8 +154,8 @@ func (c *cacheImpl) GetInstanceFromID(pid string) (CachedInstance, int) {
 /// Q: can we accelerate by async posting?
 func (c *cacheImpl) PutInstance(inst *CachedInstance) int {
 	t1 := time.Now()
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.Lock()
+	defer c.Unlock()
 
 	// We are using write through strategy here. This slows
 	// down creation, but won't affect read of the same
@@ -171,8 +171,8 @@ func (c *cacheImpl) PutInstance(inst *CachedInstance) int {
 
 func (c *cacheImpl) DelInstance(ip net.IP, lport, rport int, pid string) int {
 	t1 := time.Now()
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.Lock()
+	defer c.Unlock()
 	c.pmap.DelCachedInstanceAlt(ip, lport, rport, pid)
 	/// We may just delete in async way.
 	if err := c.conn.DelNetIDMap(ip, lport, rport); err != nil {
