@@ -21,7 +21,6 @@ type MetadataProxy struct {
 	client    *http.Client
 	addr      string
 	newCaches []Cache
-	log       []*logrus.Logger
 }
 
 func (r MetadataRequest) ByteBuf() (*bytes.Buffer, error) {
@@ -192,14 +191,6 @@ func main() {
 	caches := make([]Cache, Nworker)
 	for i := 0; i < Nworker; i++ {
 		caches[i] = NewCache(riakClient)
-	}
-	logs := make([]*logrus.Logger, Nworker)
-	for i := 0; i < Nworker; i++ {
-		f, _ := os.OpenFile(fmt.Sprintf("log%d", i), os.O_APPEND|os.O_TRUNC|os.O_CREATE, 0644)
-		logs[i] = logrus.New()
-		logs[i].SetLevel(logrus.DebugLevel)
-		logs[i].Out = f
-		caches[i].SetLog(logs[i])
 	}
 
 	client := MetadataProxy{
