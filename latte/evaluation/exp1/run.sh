@@ -10,11 +10,13 @@ msdir="/openstack/go/src/github.com/jerryz920/conferences/latte/proxy"
 riakdir="/openstack/safe/uber-safe/cluster-scripts"
 LOG=perf-log
 workdir=`pwd`
+mkdir results -p
 
+ulimit -n 32768
 
 config() {
   args=""
-  for n in 1; do
+  for n in 1 2 3 4; do
     args="$args --addr http://compute4:$((19850+n))"
   done
 
@@ -32,19 +34,22 @@ config() {
 
 }
 
+export myid=1
 run() {
-#  echo "starting $* exps"
-#  echo "restarting riak"
-#  cd $riakdir
-#  bash all-restart.sh
-#  sleep 10
-#  echo "starting metadata service"
-#  ssh compute4 "cd $msdir; bash stop.sh 4; bash start.sh 4"
-#  sleep 20
+  echo "starting $* exps"
+  echo "restarting riak"
+  cd $riakdir
+  bash all-restart.sh
+  sleep 5
+  echo "starting metadata service"
+  ssh compute4 "cd $msdir; bash stop.sh 4; bash start.sh 4"
+  sleep 20
   args=`config $*`
   cd $workdir
   echo "running ./exp1 $args"
-  ./exp1 $args >> $LOG 2>&1
+  ./exp1 $args 2>> $LOG 
+  mv $LOG results/$LOG-$myid
+  myid=$((myid+1))
 }
 
 #for n in 4; do
@@ -70,12 +75,12 @@ run() {
 #  done
 #done
 # vary nvm
-for n in 128; do
-  for j in 1; do
-    run 64 $n 3 1 $j
-    #run 64 $n 3 0 $j
-  done
-done
+#for n in 128; do
+#  for j in 1; do
+#    run 64 $n 3 1 $j
+#    #run 64 $n 3 0 $j
+#  done
+#done
 
 # vary level
 #for n in 1; do
@@ -86,25 +91,25 @@ done
 #done
 
 # vary nvm
-#for n in 128 256 512 1024; do
-#  for j in 1 2 3 4 5; do
-#    run 4 $n 3 1 $j 
-#    run 4 $n 3 0 $j 
-#  done
-#done
-#
-## vary level
-#for n in 1 2; do
-#  for j in 1 2 3 4 5; do
-#    run 4 1024 $n 1 $j 
-#    run 4 1024 $n 0 $j 
-#  done
-#done
-#
+for n in 128 256 512 1024; do
+  for j in 1 2 3 4 5; do
+    run 8 $n 3 1 $j 
+    run 8 $n 3 0 $j 
+  done
+done
+
+# vary level
+for n in 1 2; do
+  for j in 1 2 3 4 5; do
+    run 8 1024 $n 1 $j 
+    run 8 1024 $n 0 $j 
+  done
+done
+
 # vary thread
-#for n in 16 64 256; do
-#  for j in 1 2 3 4 5; do
-#    run $n 1024 3 1 $j 
-#    run $n 1024 3 0 $j 
-#  done
-#done
+for n in 8 32 128; do
+  for j in 1 2 3 4 5; do
+    run $n 1024 3 1 $j 
+    run $n 1024 3 0 $j 
+  done
+done

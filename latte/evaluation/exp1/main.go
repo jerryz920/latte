@@ -46,7 +46,7 @@ func config() {
 }
 
 func Upfront(client *base.MetadataClient) {
-	err := client.Request("/postVMInstance", IaaS,
+	err := client.Request(0, "/postVMInstance", IaaS,
 		"vm-builder",
 		"image-builder",
 		"128.105.104.122:1-65535",
@@ -58,7 +58,7 @@ func Upfront(client *base.MetadataClient) {
 		os.Exit(1)
 	}
 
-	err = client.Request("/postEndorsementLink", "noauth:vm",
+	err = client.Request(0, "/postEndorsementLink", "noauth:vm",
 		"vm-builder",
 		"image-vm")
 	if err != nil {
@@ -66,7 +66,7 @@ func Upfront(client *base.MetadataClient) {
 		os.Exit(1)
 	}
 
-	err = client.Request("/postEndorsementLink", "noauth:docker",
+	err = client.Request(0, "/postEndorsementLink", "noauth:docker",
 		"vm-builder",
 		"image-ctn")
 	if err != nil {
@@ -74,27 +74,27 @@ func Upfront(client *base.MetadataClient) {
 		os.Exit(1)
 	}
 
-	err = client.Request("/postEndorsementLink", "noauth:spark",
+	err = client.Request(0, "/postEndorsementLink", "noauth:spark",
 		"noauth:analytic",
 		"image-spark")
 	if err != nil {
 		logrus.Error(err)
 		os.Exit(1)
 	}
-	err = client.Request("/postEndorsement", "vm-builder", "image-vm", "source",
+	err = client.Request(0, "/postEndorsement", "vm-builder", "image-vm", "source",
 		"https://github.com/jerryz920/boot2docker.git#dev")
 	if err != nil {
 		logrus.Error(err)
 		os.Exit(1)
 	}
 
-	err = client.Request("/postEndorsement", "vm-builder", "image-ctn", "source",
+	err = client.Request(0, "/postEndorsement", "vm-builder", "image-ctn", "source",
 		"https://github.com/apache/spark.git#dev")
 	if err != nil {
 		logrus.Error(err)
 		os.Exit(1)
 	}
-	err = client.Request("/postEndorsement", "noauth:analytic", "image-spark", "source",
+	err = client.Request(0, "/postEndorsement", "noauth:analytic", "image-spark", "source",
 		"https://github.com/intel/hibench.git#dev")
 	if err != nil {
 		logrus.Error(err)
