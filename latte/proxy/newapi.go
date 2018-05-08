@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"hash/fnv"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -20,7 +21,14 @@ func NotImplemented(w http.ResponseWriter, r *http.Request) {
 	logrus.Error("Method not implemented!")
 }
 
-func (c *MetadataProxy) authenticate(principal string) (*CachedInstance, int) {
+func (c *MetadataProxy) getCache(remoteAddr string) Cache {
+	hasher := fnv.New32()
+	hasher.Write([]byte(remoteAddr))
+	idx := hasher.Sum32() % (uint32)(len(c.newCaches))
+	return c.newCaches[idx]
+}
+
+func (c *MetadataProxy) authenticate(mr *MetadataRequest, principal string) (*CachedInstance, int) {
 	if strings.HasPrefix(principal, NOAUTH_PREFIX) {
 		logrus.Info("noauth header found!")
 		return nil, http.StatusUnauthorized
@@ -30,14 +38,14 @@ func (c *MetadataProxy) authenticate(principal string) (*CachedInstance, int) {
 	if ok != http.StatusOK {
 		logrus.Debug("Principal looks like an UUID")
 		/// Try UUID
-		cachedInstance, status := c.cache.GetInstanceFromID(principal)
+		cachedInstance, status := mr.cache.GetInstanceFromID(principal)
 		if status != http.StatusOK {
 			logrus.Error("fail to authenticate the UUID")
 			return nil, status
 		}
 		return &cachedInstance, status
 	} else {
-		cachedInstance, status := c.cache.GetInstanceFromNetMap(ip, lport)
+		cachedInstance, status := mr.cache.GetInstanceFromNetMap(ip, lport)
 		if status != http.StatusOK {
 			logrus.Error("fail to authenticate the network address")
 			return nil, status
@@ -50,16 +58,22 @@ func (c *MetadataProxy) newAuth(r *http.Request, authPrincipal bool) (*MetadataR
 	mr, status := ReadRequest(r)
 	mr.method = r.Method
 	mr.url = r.URL.RequestURI()
+
 	if status != http.StatusOK {
 		logrus.Error("error reading request in newAuth")
 		return nil, status
 	}
+
+	mr.cache = c.getCache(r.RemoteAddr)
+	// Compute cache index to use for this connection. We are assuming the
+	// same IP and port will behave like a VM
+
 	if mr.Principal == IaaSProvider {
 		mr.Principal = IaaSProvider
 		return mr, status
 	}
 
-	cachedInstance, status := c.authenticate(mr.Principal)
+	cachedInstance, status := c.authenticate(mr, mr.Principal)
 	if status != http.StatusOK {
 		if authPrincipal {
 			logrus.Error("fail to authenticate the principal field")
@@ -86,7 +100,7 @@ func (c *MetadataProxy) newAuth(r *http.Request, authPrincipal bool) (*MetadataR
 	mr.ip = cachedInstance.Ip
 	mr.lport = cachedInstance.Lport
 	mr.rport = cachedInstance.Rport
-	mr.cache = cachedInstance
+	mr.instance = cachedInstance
 	return mr, http.StatusOK
 }
 
@@ -101,7 +115,7 @@ func (c *MetadataProxy) authzControl(mr *MetadataRequest, targetAddr string, all
 	if ok != http.StatusOK {
 		if allowUUID {
 			logrus.Infof("Can not parse target field as address, trying UUID")
-			cachedInstance, status := c.cache.GetInstanceFromID(targetAddr)
+			cachedInstance, status := mr.cache.GetInstanceFromID(targetAddr)
 			if status != http.StatusOK {
 				logrus.Error("fail to authenticate the UUID")
 				return status
@@ -122,7 +136,7 @@ func (c *MetadataProxy) authzControl(mr *MetadataRequest, targetAddr string, all
 		return http.StatusOK
 	}
 	// last resort: check if the ip is inside some allocation
-	if alloc := mr.cache.ID.Cidr; mr.cache.ID.Type == VM_INSTANCE_TYPE && alloc != nil {
+	if alloc := mr.instance.ID.Cidr; mr.instance.ID.Type == VM_INSTANCE_TYPE && alloc != nil {
 		if alloc.Contains(mr.targetIp) {
 			return http.StatusOK
 		}
@@ -151,7 +165,7 @@ func (c *MetadataProxy) preInstanceCallHandler(mr *MetadataRequest) (string, int
 	c.workaroundEmptyTrustHub(mr)
 	/// Authenticate the trust hub link if necessary
 	trustHubIndex := len(mr.OtherValues) - 1
-	cachedInstance, status := c.authenticate(mr.OtherValues[trustHubIndex])
+	cachedInstance, status := c.authenticate(mr, mr.OtherValues[trustHubIndex])
 	if status != http.StatusOK {
 		logrus.Infof("can not authenticate %s, use as normal ID",
 			mr.OtherValues[trustHubIndex])
@@ -183,7 +197,7 @@ func (c *MetadataProxy) postInstanceCreationHandler(mr *MetadataRequest, data []
 			Cidr: mr.targetCidr,
 		},
 	}
-	c.cache.PutInstance(instance)
+	mr.cache.PutInstance(instance)
 	return fmt.Sprintf("{\"message\": \"['%s']\"}\n", mr.OtherValues[0]),
 		http.StatusOK
 }
@@ -194,7 +208,7 @@ func (c *MetadataProxy) postInstanceDeletionHandler(mr *MetadataRequest, data []
 		return string(data), status
 	}
 
-	c.cache.DelInstance(mr.targetIp, mr.targetLport, mr.targetRport, mr.OtherValues[0])
+	mr.cache.DelInstance(mr.targetIp, mr.targetLport, mr.targetRport, mr.OtherValues[0])
 	return fmt.Sprintf("{\"message\": \"['%s']\"}\n", mr.OtherValues[0]),
 		http.StatusOK
 }
@@ -275,7 +289,7 @@ func (c *MetadataProxy) deleteVMInstance(w http.ResponseWriter, r *http.Request)
 func (c *MetadataProxy) createEndorsementLink(w http.ResponseWriter, r *http.Request) {
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
-		creatorInstance, status := c.authenticate(mr.OtherValues[0])
+		creatorInstance, status := c.authenticate(mr, mr.OtherValues[0])
 		if status != http.StatusOK {
 			logrus.Info("Can not authenticate endorser as instance, proceed as external principal")
 		} else {
@@ -293,7 +307,7 @@ func (c *MetadataProxy) createEndorsement(w http.ResponseWriter, r *http.Request
 
 		// authenticated as instance, replace the endorsement method
 		// /postEndorsement -> /postInstanceEndorsement
-		if mr.cache != nil {
+		if mr.instance != nil {
 			mr.url = strings.Replace(mr.url, "/post", "/postInstance", 1)
 		}
 		// not authenticated
@@ -336,7 +350,7 @@ func (c *MetadataProxy) createMembership(w http.ResponseWriter, r *http.Request)
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r,
 		func(mr *MetadataRequest) (string, int) {
-			memberInstance, status := c.authenticate(mr.OtherValues[1])
+			memberInstance, status := c.authenticate(mr, mr.OtherValues[1])
 			if status != http.StatusOK {
 				return fmt.Sprintf("cannot authenticate Image creator\n"), status
 			}
@@ -354,7 +368,7 @@ func (c *MetadataProxy) createInstanceConfig(w http.ResponseWriter, r *http.Requ
 	SetCommonHeader(w)
 	msg, status := c.newHandlerUnwrapped(r, func(mr *MetadataRequest) (string, int) {
 
-		cachedInstance, status := c.authenticate(mr.OtherValues[0])
+		cachedInstance, status := c.authenticate(mr, mr.OtherValues[0])
 		if status != http.StatusOK {
 			return fmt.Sprintf("Fail to authenticate the instance %s",
 				mr.OtherValues[0]), status
@@ -379,6 +393,7 @@ func (c *MetadataProxy) createInstanceConfig(w http.ResponseWriter, r *http.Requ
 				OtherValues: args,
 				method:      "POST",
 				url:         "/postInstanceConfig5",
+				cache:       mr.cache,
 			}
 			msg, status := c.newHandler(copyr, nil, nil)
 
@@ -408,7 +423,7 @@ func (c *MetadataProxy) handleCheckInstance(w http.ResponseWriter, r *http.Reque
 			return "", http.StatusOK
 		}
 
-		cache, status := c.authenticate(mr.OtherValues[0])
+		cache, status := c.authenticate(mr, mr.OtherValues[0])
 		if status != http.StatusOK {
 			return fmt.Sprintf("target not found %s", mr.OtherValues[0]), status
 		}

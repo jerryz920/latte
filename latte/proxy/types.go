@@ -36,9 +36,10 @@ type MetadataRequest struct {
 	targetType  string
 
 	// original request
-	url    string
-	method string
-	cache  *CachedInstance
+	url      string
+	method   string
+	instance *CachedInstance
+	cache    Cache /// The cache to use for this request
 }
 
 func EncodingMetadataRequest(mr *MetadataRequest) (*bytes.Buffer, error) {

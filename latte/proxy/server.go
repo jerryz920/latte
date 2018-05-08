@@ -18,9 +18,9 @@ import (
 )
 
 type MetadataProxy struct {
-	client *http.Client
-	cache  Cache
-	addr   string
+	client    *http.Client
+	addr      string
+	newCaches []Cache
 }
 
 func (r MetadataRequest) ByteBuf() (*bytes.Buffer, error) {
@@ -135,6 +135,7 @@ var (
 	ConfDebug  bool
 	SafeAddr   string
 	ListenAddr string
+	Nworker    int
 )
 
 func (s *Addresses) String() string {
@@ -156,6 +157,8 @@ func config() {
 	flag.BoolVar(&ConfDebug, "debug", false, "set debug output")
 	flag.StringVar(&SafeAddr, "safe", "localhost:7777", "set safe address")
 	flag.StringVar(&ListenAddr, "listen", "0.0.0.0:19851", "listen address")
+	/// Each worker has its own cache
+	flag.IntVar(&Nworker, "nworker", 64, "listen address")
 	flag.Parse()
 }
 
@@ -184,14 +187,20 @@ func main() {
 		os.Exit(1)
 	}
 	logrus.Info("Riak connected! Starting the API server")
+
+	caches := make([]Cache, Nworker)
+	for i := 0; i < Nworker; i++ {
+		caches[i] = NewCache(riakClient)
+	}
+
 	client := MetadataProxy{
 		client: &http.Client{
 			Transport: &http.Transport{
 				DisableCompression: true,
 			},
 		},
-		cache: NewCache(riakClient),
-		addr:  SafeAddr,
+		addr:      SafeAddr,
+		newCaches: caches,
 	}
 	server := kvstore.NewKvStore(rootHandler)
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/biogo/store/interval"
 	"github.com/sirupsen/logrus"
@@ -42,6 +43,7 @@ func (p Index) String() string {
 type Pmap struct {
 	Identities map[string]*interval.IntTree // ip -> port range map
 	PidMap     map[string]*CachedInstance   // uuid -> ip, port range, and ppid
+	LockMap    map[string]*sync.Mutex
 	counter    int
 }
 

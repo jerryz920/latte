@@ -13,9 +13,9 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 	end := (i + 1) * block
 
 	for j := start; j < end; j++ {
-		first := j / (128 * 128)
+		first := j/(128*128) + 1
 		second := (j / 128) % 128
-		third := j % 128
+		third := j%128 + 1
 		vmip := fmt.Sprintf("192.%d.%d.%d", first, second, third)
 		vmid := fmt.Sprintf("vm%d", j)
 		cidr := fmt.Sprintf("%d.%d.%d.0/24", first, second, third)
@@ -24,12 +24,13 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 		client.Request("/postVMInstance", IaaS,
 			vmid,
 			"image-vm",
-			vmip,
+			fmt.Sprintf("%s:1-65535", vmip),
 			cidr,
 			vpc,
 			"noauth:vm")
-		confs := make([]string, 10)
-		for x := 0; x < 10; x++ {
+		confs := make([]string, 11)
+		confs[0] = vmid
+		for x := 1; x < 11; x++ {
 			confs[x] = fmt.Sprintf("ccc%d", x)
 		}
 		client.Request("/postInstanceConfig", IaaS, confs...)
@@ -40,15 +41,16 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 			ctnip := fmt.Sprintf("%d.%d.%d.%d", first, second, third, k)
 			ctnid := fmt.Sprintf("vm%d-ctn%d", j, k)
 			client.Request("/postInstance", vmid,
-				ctnip,
-				"image-ctn",
 				ctnid,
+				"image-ctn",
+				fmt.Sprintf("%s:1-65535", ctnip),
 				"noauth:docker")
-			confs2 := make([]string, 20)
-			for x := 0; x < 20; x++ {
+			confs2 := make([]string, 21)
+			confs2[0] = ctnid
+			for x := 1; x < 21; x++ {
 				confs2[x] = fmt.Sprintf("cccc%d", x)
 			}
-			client.Request("/postInstanceConfig", IaaS, confs2...)
+			client.Request("/postInstanceConfig", vmid, confs2...)
 
 			// 4 procs
 			for l := 0; l < 4; l++ {
@@ -62,18 +64,19 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 					"image-spark",
 					pip,
 					"noauth:noauth:spark")
-				confs3 := make([]string, 20)
-				for x := 0; x < 20; x++ {
+				confs3 := make([]string, 21)
+				confs3[0] = pid
+				for x := 1; x < 21; x++ {
 					confs3[x] = fmt.Sprintf("cccc%d", x)
 				}
-				client.Request("/postInstanceConfig", IaaS, confs3...)
+				client.Request("/postInstanceConfig", ctnid, confs3...)
 			}
 		}
 	}
 	for j := start; j < end; j++ {
-		first := j / (128 * 128)
+		first := j/(128*128) + 1
 		second := (j / 128) % 128
-		third := j % 128
+		third := j%128 + 1
 		vmip := fmt.Sprintf("192.%d.%d.%d", first, second, third)
 		client.Request("/checkFetch", "vmcheck", fmt.Sprintf("%s:10000", vmip))
 		/// 50 ctns

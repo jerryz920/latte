@@ -94,7 +94,7 @@ func Upfront(client *base.MetadataClient) {
 		logrus.Error(err)
 		os.Exit(1)
 	}
-	err = client.Request("postEndorsement", "noauth:analytic", "image-spark", "source",
+	err = client.Request("/postEndorsement", "noauth:analytic", "image-spark", "source",
 		"https://github.com/intel/hibench.git#dev")
 	if err != nil {
 		logrus.Error(err)
@@ -120,6 +120,7 @@ func main() {
 
 	for _, addr := range Addresses {
 		clients[i] = base.NewClient(addr)
+		i++
 	}
 	formatter := logrus.JSONFormatter{}
 	formatter.DisableTimestamp = true
