@@ -69,6 +69,7 @@ func (c *MetadataProxy) newAuth(r *http.Request, authPrincipal bool) (*MetadataR
 	}
 
 	mr.cache = c.getCache(r.RemoteAddr, mr.Auth)
+	mr.Auth = "" //clear it for compatibility
 	// Compute cache index to use for this connection. We are assuming the
 	// same IP and port will behave like a VM
 

@@ -14,12 +14,18 @@ import (
 type MetadataRequest struct {
 	Principal   string   `json:"principal"`
 	OtherValues []string `json:"otherValues"`
+	Auth        string   `json:"auth,omitempty"`
 }
 
 type MetadataClient struct {
 	Host   string
 	Client http.Client
+	Index  int
 }
+
+var (
+	clientIndex = 0
+)
 
 func (m *MetadataClient) Request(cmd string, principal string, otherValues ...string) error {
 	tx := time.Now()
@@ -53,6 +59,7 @@ func (m *MetadataClient) Request(cmd string, principal string, otherValues ...st
 }
 
 func NewClient(addr string) *MetadataClient {
+	clientIndex++
 	return &MetadataClient{
 		Host: addr,
 		Client: http.Client{
@@ -61,5 +68,6 @@ func NewClient(addr string) *MetadataClient {
 			},
 			Timeout: time.Second * 10,
 		},
+		Index: clientIndex,
 	}
 }
