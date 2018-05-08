@@ -21,6 +21,7 @@ type MetadataRequest struct {
 	Principal   string   `json:"principal"`
 	ParentBear  string   `json:"bearerRef,omitempty"`
 	OtherValues []string `json:"otherValues"`
+	Auth        string   `json:"auth,omitempty"`
 
 	/// fields not to be marshaled but used internally
 	/// FIXME: duplicated stuff, can remove in future to use cache only

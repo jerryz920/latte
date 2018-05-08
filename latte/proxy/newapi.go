@@ -21,11 +21,15 @@ func NotImplemented(w http.ResponseWriter, r *http.Request) {
 	logrus.Error("Method not implemented!")
 }
 
-func (c *MetadataProxy) getCache(remoteAddr string) Cache {
+func (c *MetadataProxy) getCache(remoteAddr string, auth string) Cache {
 	hasher := fnv.New32()
 	hasher.Write([]byte(remoteAddr))
 	idx := hasher.Sum32() % (uint32)(len(c.newCaches))
-	return c.newCaches[idx]
+	hasher = fnv.New32()
+	hasher.Write([]byte(auth))
+	idx1 := hasher.Sum32() % (uint32)(len(c.newCaches))
+	logrus.Infof("cache %s to %d, %s to %d", remoteAddr, idx, auth, idx1)
+	return c.newCaches[idx1]
 }
 
 func (c *MetadataProxy) authenticate(mr *MetadataRequest, principal string) (*CachedInstance, int) {
@@ -64,7 +68,7 @@ func (c *MetadataProxy) newAuth(r *http.Request, authPrincipal bool) (*MetadataR
 		return nil, status
 	}
 
-	mr.cache = c.getCache(r.RemoteAddr)
+	mr.cache = c.getCache(r.RemoteAddr, mr.Auth)
 	// Compute cache index to use for this connection. We are assuming the
 	// same IP and port will behave like a VM
 
