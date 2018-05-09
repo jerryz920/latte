@@ -37,7 +37,7 @@ func WorkRandom(client *base.MetadataClient, i int, done chan bool) {
 		client.Request(i, "/checkFetch", "noauth:vmcheck", fmt.Sprintf("%s:10000", vmip))
 
 		/// 50 ctns
-		for k := 0; k < 50; k++ {
+		for k := 0; k < 50 && NumLevel >= 2; k++ {
 
 			ctnip := fmt.Sprintf("%d.%d.%d.%d", first, second, third, k)
 			ctnid := fmt.Sprintf("vm%d-ctn%d", j, k)
@@ -55,7 +55,7 @@ func WorkRandom(client *base.MetadataClient, i int, done chan bool) {
 			client.Request(i, "/checkFetch", "noauth:ctncheck", fmt.Sprintf("%s:10000", ctnip))
 
 			// 4 procs
-			for l := 0; l < 4; l++ {
+			for l := 0; l < 4 && NumLevel >= 3; l++ {
 				port1 := 30000 + l*1000
 				port2 := 30999 + l*1000
 				pip := fmt.Sprintf("%d.%d.%d.%d:%d-%d", first, second, third, k,

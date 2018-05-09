@@ -36,7 +36,7 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 		client.Request(i, "/postInstanceConfig", IaaS, confs...)
 
 		/// 50 ctns
-		for k := 0; k < 50; k++ {
+		for k := 0; k < 50 && NumLevel >= 2; k++ {
 
 			ctnip := fmt.Sprintf("%d.%d.%d.%d", first, second, third, k)
 			ctnid := fmt.Sprintf("vm%d-ctn%d", j, k)
@@ -53,7 +53,7 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 			client.Request(i, "/postInstanceConfig", vmid, confs2...)
 
 			// 4 procs
-			for l := 0; l < 4; l++ {
+			for l := 0; l < 4 && NumLevel >= 3; l++ {
 				port1 := 30000 + l*1000
 				port2 := 30999 + l*1000
 				pip := fmt.Sprintf("%d.%d.%d.%d:%d-%d", first, second, third, k,
@@ -80,13 +80,13 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 		vmip := fmt.Sprintf("192.%d.%d.%d", first, second, third)
 		client.Request(i, "/checkFetch", "noauth:vmcheck", fmt.Sprintf("%s:10000", vmip))
 		/// 50 ctns
-		for k := 0; k < 50; k++ {
+		for k := 0; k < 50 && NumLevel >= 2; k++ {
 
 			ctnip := fmt.Sprintf("%d.%d.%d.%d", first, second, third, k)
 			client.Request(i, "/checkFetch", "noauth:ctncheck", fmt.Sprintf("%s:10000", ctnip))
 
 			// 4 procs
-			for l := 0; l < 4; l++ {
+			for l := 0; l < 4 && NumLevel >= 3; l++ {
 				port1 := 30000 + l*1000
 				client.Request(i, "/checkFetch", "noauth:proccheck", fmt.Sprintf("%s:%d", ctnip, port1+1))
 			}
@@ -96,10 +96,10 @@ func Work(client *base.MetadataClient, i int, done chan bool) {
 	for j := start; j < end; j++ {
 		vmid := fmt.Sprintf("vm%d", j)
 		/// 50 ctns
-		for k := 0; k < 50; k++ {
+		for k := 0; k < 50 && NumLevel >= 2; k++ {
 			ctnid := fmt.Sprintf("vm%d-ctn%d", j, k)
 			// 4 procs
-			for l := 0; l < 4; l++ {
+			for l := 0; l < 4 && NumLevel >= 3; l++ {
 				pid := fmt.Sprintf("vm%d-ctn%d-spark%d", j, k, l)
 				client.Request(i, "/lazyDeleteInstance", ctnid, pid)
 			}
