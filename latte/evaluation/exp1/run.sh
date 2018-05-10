@@ -17,7 +17,7 @@ ulimit -n 90000
 config() {
   args=""
   for n in 1 2 3 4; do
-    args="$args --addr http://compute$n:$((19851+n))"
+    args="$args --addr http://localhost:$((19851+n))"
   done
 
   # 1 = nthread

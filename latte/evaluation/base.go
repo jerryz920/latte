@@ -79,7 +79,7 @@ func NewClient(addr string) *MetadataClient {
 			Transport: &http.Transport{
 				MaxIdleConnsPerHost: 128,
 			},
-			Timeout: time.Second * 10,
+			Timeout: time.Second * 15,
 		},
 		Index: clientIndex,
 	}

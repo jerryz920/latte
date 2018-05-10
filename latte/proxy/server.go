@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jerryz920/conferences/latte/kvstore"
 	logrus "github.com/sirupsen/logrus"
@@ -196,8 +197,10 @@ func main() {
 	client := MetadataProxy{
 		client: &http.Client{
 			Transport: &http.Transport{
-				DisableCompression: true,
+				DisableCompression:  true,
+				MaxIdleConnsPerHost: 256,
 			},
+			Timeout: time.Second * 15,
 		},
 		addr:      SafeAddr,
 		newCaches: caches,
