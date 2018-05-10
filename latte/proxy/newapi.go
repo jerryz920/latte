@@ -604,6 +604,7 @@ func SetupNewAPIs(c *MetadataProxy, server *jhttp.APIServer) {
 		"/checkBuildsFrom",
 		"/checkEndorse",
 		"/checkTrustedCluster",
+		"/checkMySQLConnection",
 		//	"/checkTrustedCode", Should use some other check
 		"/checkTrustedConnections",
 	}
