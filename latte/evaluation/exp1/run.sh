@@ -34,7 +34,7 @@ config() {
 
 }
 
-export myid=74
+export myid=200
 run() {
   echo "starting $* exps"
   echo "restarting riak"
@@ -91,26 +91,26 @@ run() {
 #done
 
 # vary nvm
-#for n in 128 256 512 1024; do
-#  for j in 1 2 3 4 5; do
-#    run 128 $n 3 1 $j 
-#    run 128 $n 3 0 $j 
-#  done
-#done
-
-# vary level
-#for n in 1 2; do
-#  for j in 1 2 3 4 5; do
-#    run 128 1024 $n 1 $j 
-#    run 128 1024 $n 0 $j 
-#  done
-#done
-
-# vary thread
-ulimit -n 
-for n in 256; do
+for n in 512 1024 2048; do
   for j in 1 2 3 4 5; do
-    run $n 1024 3 1 $j 
-    run $n 1024 3 0 $j 
+    run 128 $n 3 1 $j 
+    run 128 $n 3 0 $j 
   done
 done
+
+# vary level
+for n in 1 2; do
+  for j in 1 2 3 4 5; do
+    run 128 1024 $n 1 $j 
+    run 128 1024 $n 0 $j 
+  done
+done
+
+# vary thread
+#ulimit -n 
+#for n in 256; do
+#  for j in 1 2 3 4 5; do
+#    run $n 1024 3 1 $j 
+#    run $n 1024 3 0 $j 
+#  done
+#done

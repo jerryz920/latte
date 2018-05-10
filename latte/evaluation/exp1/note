@@ -1,0 +1,4 @@
+exp < 70 are useless
+exp 70-99 is 128 and 256 thread data
+100-109 is 32 thread data
+exp 200-250 is 128 thread with varying instance from 512 1024 2048, and varying level 1 2 (3 already run)
