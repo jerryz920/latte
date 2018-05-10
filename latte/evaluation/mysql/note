@@ -1,0 +1,8 @@
+using 30 warehouse
+
+problems: need to manually insert --local-infile to db loading script, and may need to modify server side option and restart
+need to modify the password option in script to remove extra whitespace
+need to use 30 warehouse not 3 to have some data
+
+some known command to run.
+bash run_mysql.sh --connections 30 --time 300 --warehouses 30 --host 10.10.1.1 --database dbt2 --time 60 --zero-delay --port 3307 --user root --password root@sonar --lib-client-path /usr/lib/x86_64-linux-gnu/;
