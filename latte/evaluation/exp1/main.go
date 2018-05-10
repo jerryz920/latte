@@ -32,7 +32,7 @@ func (m *MetadataServices) Set(val string) error {
 }
 
 var (
-	levels = []int{200, 50, 1}
+	levels = []int{200, 4, 1}
 )
 
 func config() {

@@ -45,7 +45,6 @@ func (m *MetadataClient) Request(index int, cmd string, principal string, otherV
 
 	resp, err := m.Client.Post(url, "application/json", buf)
 	if err != nil {
-		logrus.Error("error in requesting:", err)
 
 		/// retry once
 		if resp != nil && resp.Body != nil {
@@ -55,6 +54,7 @@ func (m *MetadataClient) Request(index int, cmd string, principal string, otherV
 
 		resp, err = m.Client.Post(url, "application/json", buf)
 		if err != nil {
+			logrus.Error("error in requesting:", err)
 			return err
 		}
 	}

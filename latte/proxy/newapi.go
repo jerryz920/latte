@@ -505,6 +505,7 @@ func (c *MetadataProxy) newHandler(mr *MetadataRequest, preHook func(*MetadataRe
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	if err != nil {
 		msg := fmt.Sprintf("error reading the response from server: %v\n", err)
 		return msg, http.StatusInternalServerError
