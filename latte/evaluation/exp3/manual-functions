@@ -1,0 +1,22 @@
+#!/bin/bash
+lazyDeleteInstance() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/lazyDeleteInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+
+postInstanceConfig() {
+    local principal=$1
+    shift 1
+    args="\"${1}\""
+    shift 1
+    while [[ $# > 0 ]]; do
+      args="$args,\"${1}\",\"${2}\""
+      shift 1
+      shift 1
+    done
+# ?Instance AnyNumberOfKVPair
+    curl -XPOST $SAFE_ADDR/postInstanceConfig -d "{ \"principal\": \"$principal\", \"otherValues\": [$args]}"
+}
+

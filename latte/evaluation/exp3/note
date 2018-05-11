@@ -1,0 +1,11 @@
+running cache and guards
+
+
+cache: clean riak, use a list of create and see how it goes for VM/Container/Proc creation. Submit 100 100 100 creation request, see how it is affected
+fetch: make the proxy to disable cache (riak every time) and see how each VM fetch is affected
+
+guards: loaded same set of statements, and run 100 check w/wo proxy cache
+	launches, buildsfrom, membership, connection, quality, isolation, launchguard
+
+
+
