@@ -1,0 +1,673 @@
+#!/bin/bash
+
+if [ -z "$SAFE_ADDR" ]; then
+    echo ' must set SAFE_ADDR env '
+    exit 1
+fi
+
+
+postInstance() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?AuthID,?TrustHub
+    curl -XPOST $SAFE_ADDR/postInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstance() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?AuthID,?TrustHub
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstance() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postVMInstance() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?AuthID,?Cidr,?Vpc,?TrustHub
+    curl -XPOST $SAFE_ADDR/postVMInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostVMInstance() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?AuthID,?Cidr,?Vpc,?TrustHub
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postVMInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delVMInstance() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delVMInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postVpcConfig1() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1
+    curl -XPOST $SAFE_ADDR/postVpcConfig1 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostVpcConfig1() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postVpcConfig1 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delVpcConfig1() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delVpcConfig1 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postVpcConfig2() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2
+    curl -XPOST $SAFE_ADDR/postVpcConfig2 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostVpcConfig2() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postVpcConfig2 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delVpcConfig2() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delVpcConfig2 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postVpcConfig3() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3
+    curl -XPOST $SAFE_ADDR/postVpcConfig3 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostVpcConfig3() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postVpcConfig3 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delVpcConfig3() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delVpcConfig3 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postVpcConfig4() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4
+    curl -XPOST $SAFE_ADDR/postVpcConfig4 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostVpcConfig4() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postVpcConfig4 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delVpcConfig4() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delVpcConfig4 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postVpcConfig5() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4,?Config5,?Value5
+    curl -XPOST $SAFE_ADDR/postVpcConfig5 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\",\"${10}\",\"${11}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostVpcConfig5() {
+    local principal=$1
+    shift 1
+# ?Vpc,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4,?Config5,?Value5
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postVpcConfig5 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\",\"${10}\",\"${11}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delVpcConfig5() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delVpcConfig5 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\",\"${10}\",\"${11}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceConfig1() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1
+    curl -XPOST $SAFE_ADDR/postInstanceConfig1 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceConfig1() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceConfig1 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceConfig1() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceConfig1 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceConfig2() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2
+    curl -XPOST $SAFE_ADDR/postInstanceConfig2 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceConfig2() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceConfig2 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceConfig2() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceConfig2 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceConfig3() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3
+    curl -XPOST $SAFE_ADDR/postInstanceConfig3 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceConfig3() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceConfig3 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceConfig3() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceConfig3 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceConfig4() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4
+    curl -XPOST $SAFE_ADDR/postInstanceConfig4 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceConfig4() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceConfig4 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceConfig4() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceConfig4 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceConfig5() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4,?Config5,?Value5
+    curl -XPOST $SAFE_ADDR/postInstanceConfig5 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\",\"${10}\",\"${11}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceConfig5() {
+    local principal=$1
+    shift 1
+# ?Instance,?Config1,?Value1,?Config2,?Value2,?Config3,?Value3,?Config4,?Value4,?Config5,?Value5
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceConfig5 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\",\"${10}\",\"${11}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceConfig5() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceConfig5 -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\",\"${6}\",\"${7}\",\"${8}\",\"${9}\",\"${10}\",\"${11}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postEndorsementLink() {
+    local principal=$1
+    shift 1
+# ?Endorser,?Target
+    curl -XPOST $SAFE_ADDR/postEndorsementLink -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostEndorsementLink() {
+    local principal=$1
+    shift 1
+# ?Endorser,?Target
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postEndorsementLink -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delEndorsementLink() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delEndorsementLink -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?Value
+    curl -XPOST $SAFE_ADDR/postEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delEndorsement() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?Value
+    curl -XPOST $SAFE_ADDR/postInstanceEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceEndorsement() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postConditionalEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Key,?Expected,?Prop,?Value
+    curl -XPOST $SAFE_ADDR/postConditionalEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostConditionalEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Key,?Expected,?Prop,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postConditionalEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delConditionalEndorsement() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delConditionalEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceConditionalEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Key,?Expected,?Prop,?Value
+    curl -XPOST $SAFE_ADDR/postInstanceConditionalEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceConditionalEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Key,?Expected,?Prop,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceConditionalEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceConditionalEndorsement() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceConditionalEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\",\"${5}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postParameterizedEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?ConfName
+    curl -XPOST $SAFE_ADDR/postParameterizedEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostParameterizedEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?ConfName
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postParameterizedEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delParameterizedEndorsement() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delParameterizedEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postInstanceParameterizedEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?ConfName
+    curl -XPOST $SAFE_ADDR/postInstanceParameterizedEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostInstanceParameterizedEndorsement() {
+    local principal=$1
+    shift 1
+# ?Target,?Prop,?ConfName
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postInstanceParameterizedEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delInstanceParameterizedEndorsement() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delInstanceParameterizedEndorsement -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postCluster() {
+    local principal=$1
+    shift 1
+# ?Cluster,?OwnerGuard,?JoinerGuard
+    curl -XPOST $SAFE_ADDR/postCluster -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostCluster() {
+    local principal=$1
+    shift 1
+# ?Cluster,?OwnerGuard,?JoinerGuard
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postCluster -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delCluster() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delCluster -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postMembership() {
+    local principal=$1
+    shift 1
+# ?Cluster,?WorkerID
+    curl -XPOST $SAFE_ADDR/postMembership -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostMembership() {
+    local principal=$1
+    shift 1
+# ?Cluster,?WorkerID
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postMembership -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delMembership() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delMembership -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postAckMembership() {
+    local principal=$1
+    shift 1
+# ?Cluster,?MasterID
+    curl -XPOST $SAFE_ADDR/postAckMembership -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostAckMembership() {
+    local principal=$1
+    shift 1
+# ?Cluster,?MasterID
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postAckMembership -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delAckMembership() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delAckMembership -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postParameterizedConnection() {
+    local principal=$1
+    shift 1
+# ?Target,?Service,?ConfName
+    curl -XPOST $SAFE_ADDR/postParameterizedConnection -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostParameterizedConnection() {
+    local principal=$1
+    shift 1
+# ?Target,?Service,?ConfName
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postParameterizedConnection -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delParameterizedConnection() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delParameterizedConnection -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+postTrustHubLink() {
+    local principal=$1
+    shift 1
+# ?OtherHub
+    curl -XPOST $SAFE_ADDR/postTrustHubLink -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+measurePostTrustHubLink() {
+    local principal=$1
+    shift 1
+# ?OtherHub
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/postTrustHubLink -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"], \"auth\":\"${AUTH:-1}\"}"
+}
+delTrustHubLink() {
+    local principal=$1
+    shift 1
+    curl -XPOST $SAFE_ADDR/delTrustHubLink -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"], \"auth\": \"${AUTH:-1}\"}"
+}
+        
+
+checkContainerIsolation() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkContainerIsolation -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckContainerIsolation() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkContainerIsolation -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkClusterGuard() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkClusterGuard -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckClusterGuard() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkClusterGuard -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkTrustedCluster() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkTrustedCluster -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckTrustedCluster() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkTrustedCluster -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkMySQLConnection() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkMySQLConnection -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckMySQLConnection() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkMySQLConnection -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkCodeQuality() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkCodeQuality -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckCodeQuality() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkCodeQuality -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkBuildsFrom() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?Value
+    curl -XPOST $SAFE_ADDR/checkBuildsFrom -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"]}"
+}
+measureCheckBuildsFrom() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkBuildsFrom -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"]}"
+}
+        
+
+checkConfig() {
+    local principal=$1
+    shift 1
+# ?Instance,?Name,?Value
+    curl -XPOST $SAFE_ADDR/checkConfig -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"]}"
+}
+measureCheckConfig() {
+    local principal=$1
+    shift 1
+# ?Instance,?Name,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkConfig -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"]}"
+}
+        
+
+checkBuilder() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkBuilder -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckBuilder() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkBuilder -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkLaunches() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image
+    curl -XPOST $SAFE_ADDR/checkLaunches -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"]}"
+}
+measureCheckLaunches() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkLaunches -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\"]}"
+}
+        
+
+checkFetch() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkFetch -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckFetch() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkFetch -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkAttester() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkAttester -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckAttester() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkAttester -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkProperty() {
+    local principal=$1
+    shift 1
+# ?Instance,?Name,?Value
+    curl -XPOST $SAFE_ADDR/checkProperty -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"]}"
+}
+measureCheckProperty() {
+    local principal=$1
+    shift 1
+# ?Instance,?Name,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkProperty -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\"]}"
+}
+        
+
+checkEndorse() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?Name,?Value
+    curl -XPOST $SAFE_ADDR/checkEndorse -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\"]}"
+}
+measureCheckEndorse() {
+    local principal=$1
+    shift 1
+# ?Instance,?Image,?Name,?Value
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkEndorse -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\",\"${2}\",\"${3}\",\"${4}\"]}"
+}
+        
+
+checkTrustedCode() {
+    local principal=$1
+    shift 1
+# ?Image, ?Delegator
+    curl -XPOST $SAFE_ADDR/checkTrustedCode -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckTrustedCode() {
+    local principal=$1
+    shift 1
+# ?Image, ?Delegator
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkTrustedCode -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
+
+checkTrustedConnections() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -XPOST $SAFE_ADDR/checkTrustedConnections -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+measureCheckTrustedConnections() {
+    local principal=$1
+    shift 1
+# ?Instance
+    curl -s -w %{time_total} -o debug.log -XPOST $SAFE_ADDR/checkTrustedConnections -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+}
+        
