@@ -61,14 +61,14 @@ create
 
 LOG=${1:-launches-log}
 for n in `seq 1 20`; do
-measureCheckLaunches anyone vm1-ctn1 image-cnt >> $LOG
+measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG
 done
 
 restartall
 create
 
 for n in `seq 1 20`; do
-measureCheckLaunches anyone vm1-ctn1 image-cnt >> $LOG
+measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG
 restartproxy
 done
 

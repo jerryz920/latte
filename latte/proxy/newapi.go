@@ -395,9 +395,11 @@ func (c *MetadataProxy) createInstanceConfig(w http.ResponseWriter, r *http.Requ
 
 			copyr := &MetadataRequest{
 				Principal:   mr.Principal,
+				Auth:        mr.Auth,
 				OtherValues: args,
 				method:      "POST",
 				url:         "/postInstanceConfig5",
+				instance:    mr.instance,
 				cache:       mr.cache,
 			}
 			msg, status := c.newHandler(copyr, nil, nil)

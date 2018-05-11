@@ -11,7 +11,7 @@ source utils.sh
 
 
 # configs
-N=10
+N=1
 L=3
 
 create() {
@@ -65,6 +65,7 @@ time create
 
 LOG=${1:-buildsfrom-log}
 for n in `seq 1 20`; do
+  checkBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG
   measureCheckBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG
 done
 restartall

@@ -57,7 +57,8 @@ create
 
 LOG=${1:-isolation-log}
 for n in `seq 1 20`; do
-measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG
+#measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG
+checkContainerIsolation "anyone" vm1-ctn1 >> $LOG
 done
 
 restartall

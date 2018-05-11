@@ -70,6 +70,7 @@ done
 
 create
 
+LOG=${1:-membership-log}
 restartproxy
 for n in `seq 1 20`; do
   measureCheckTrustedCluster "noauth:alice" vm2-ctn5 >> $LOG
