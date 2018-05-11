@@ -11,7 +11,7 @@ source ./utils.sh
 
 
 # configs
-N=100
+N=20
 L=3
 
 create() {
@@ -39,7 +39,7 @@ postEndorsement "noauth:analytic" "image-spark" "source" "https://github.com/int
     if [ $L -le 1 ]; then
       continue;
     fi
-    for m in `seq 1 50`; do
+    for m in `seq 1 20`; do
       postInstance "192.168.0.$n:1-65535" "vm$n-ctn$m" "image-ctn" "192.168.$n.$m:1-65535" "noauth:docker"
       postInstanceConfig5 "192.168.0.$n:1-65535" "vm$n-ctn$m" "c1" "v1" "c2" "v2" "c3" "v3" "c4" "v4" "c5" "v5"
       #    postInstanceControl $IAAS "vm$n" "vm$n-ctn$m"
@@ -60,14 +60,14 @@ postEndorsement "noauth:analytic" "image-spark" "source" "https://github.com/int
 create
 
 LOG=${1:-launches-log}
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckLaunches anyone vm1-ctn1 image-cnt >> $LOG
 done
 
 restartall
 create
 
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckLaunches anyone vm1-ctn1 image-cnt >> $LOG
 restartproxy
 done

@@ -71,13 +71,13 @@ done
 create
 
 restartproxy
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
   measureCheckTrustedCluster "noauth:alice" vm2-ctn5 >> $LOG
 done
 restartall
 
 create
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
   measureCheckTrustedCluster "noauth:alice" vm2-ctn5 >> $LOG
   restartproxy
 done

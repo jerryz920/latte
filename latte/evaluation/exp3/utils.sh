@@ -15,7 +15,7 @@ restartall() {
 
 restartproxy(){
   killall metaserver
-  ./metaserver --addr 10.10.1.3:8087 --addr 10.10.1.4:8087 --addr 10.10.1.5:8087 --safe compute4:7777 --listen 0.0.0.0:19852  >perflog-meta 2>&1 &
-  sleep 2
+  ./metaserver --addr 10.10.1.3:8087 --addr 10.10.1.4:8087 --addr 10.10.1.5:8087 --safe compute4:7777 --listen 0.0.0.0:19852  >>perflog-meta-1 2>&1 &
+  sleep 0.5
 }
 

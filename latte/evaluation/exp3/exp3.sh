@@ -20,8 +20,8 @@ do_cache() {
   done
   m=1
   for l in `seq 1 $1`; do
-    port1="3${l}000"
-    port2="3${l}999"
+    port1=`expr 30000 + $l \* 10`
+    port2=`expr 30000 + $l \* 10 + 9`
     measurePostInstance "192.168.$n.$m:1-65535" "vm$n-ctn$m-spark$l" "image-spark" "192.168.$n.$m:$port1-$port2"  "noauth:spark"
   done
   restartproxy
@@ -34,7 +34,7 @@ do_cache() {
   done
   m=1
   for l in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.1.1:31000
+    measureCheckFetch checking  192.168.1.1:30010
   done
 }
 
@@ -50,8 +50,8 @@ no_cache() {
   done
   m=1
   for l in `seq 1 $1`; do
-    port1="3${l}000"
-    port2="3${l}999"
+    port1=`expr 30000 + $l \* 10`
+    port2=`expr 30000 + $l \* 10 + 9`
     measurePostInstance "192.168.$n.$m:1-65535" "vm$n-ctn$m-spark$l" "image-spark" "192.168.$n.$m:$port1-$port2"  "noauth:spark"
     restartproxy
   done
@@ -67,7 +67,7 @@ no_cache() {
   done
   m=1
   for l in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.1.1:31000
+    measureCheckFetch checking  192.168.1.1:30010
     restartproxy
   done
 }
@@ -78,9 +78,9 @@ mkdir -p results
 # we measure 100 100 100 
 for run in 1 2 3 4 5; do
   restartall
-  do_cache 100 >> cache-create.log
+  do_cache 20 >> cache-create.log
   restartall
-  no_cache 100 >> nocache-create.log
+  no_cache 20 >> nocache-create.log
 done
 mv cache-create.log results
 mv nocache-create.log results

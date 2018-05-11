@@ -11,7 +11,7 @@ source utils.sh
 
 
 # configs
-N=100
+N=20
 L=3
 BUILDER="128.105.104.122:1-65535"
 
@@ -42,12 +42,12 @@ postEndorsement "vm-builder" "image-vm" "source" "https://github.com/jerryz920/b
 time create
 
 LOG=${1:-connection-log}
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG
 done
 restartall
 create
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG
 restartproxy
 done

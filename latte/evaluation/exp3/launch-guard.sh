@@ -35,7 +35,7 @@ source ./utils.sh
 
 create() {
 # configs
-N=100
+N=20
 L=3
 BUILDER="128.105.104.122:1-65535"
 
@@ -52,14 +52,14 @@ postVpcConfig1 $IAAS "vpc1" "launchGuard" "JustForTest"
 }
 create
 LOG=${1:-launch-guard-log}
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckClusterGuard anyone vm1 >> $LOG
 done
 
 restartall
 create
 
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckClusterGuard anyone vm1 >> $LOG
 restartproxy
 done

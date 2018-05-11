@@ -33,7 +33,7 @@ source ./utils.sh
 
 
 # configs
-N=1
+N=20
 L=3
 BUILDER="128.105.104.122:1-65535"
 
@@ -56,7 +56,7 @@ postEndorsement "vm-builder" "image-ctn" "source" "https://github.com/apache/spa
 create
 
 LOG=${1:-isolation-log}
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG
 done
 
@@ -64,7 +64,7 @@ restartall
 
 create
 
-for n in `seq 1 100`; do
+for n in `seq 1 20`; do
 measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG
 restartproxy
 done
