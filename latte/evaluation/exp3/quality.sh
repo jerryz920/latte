@@ -11,7 +11,7 @@ source utils.sh
 
 
 # configs
-N=20
+N=10
 L=3
 BUILDER="128.105.104.122:1-65535"
 
@@ -44,7 +44,7 @@ done
     if [ $L -le 1 ]; then
       continue;
     fi
-    for m in `seq 1 20`; do
+    for m in `seq 1 10`; do
       postInstance "192.168.0.$n:1-65535" "vm$n-ctn$m" "image-ctn" "192.168.$n.$m:1-65535" "noauth:docker"
       postInstanceConfig5 "192.168.0.$n:1-65535" "vm$n-ctn$m" "c1" "v1" "c2" "v2" "c3" "v3" "c4" "v4" "c5" "v5"
     done

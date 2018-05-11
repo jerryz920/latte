@@ -11,7 +11,7 @@ source ./utils.sh
 
 
 # configs
-N=20
+N=10
 L=3
 
 create() {
@@ -39,14 +39,14 @@ postEndorsement "noauth:analytic" "image-spark" "source" "https://github.com/int
     if [ $L -le 1 ]; then
       continue;
     fi
-    for m in `seq 1 20`; do
+    for m in `seq 1 10`; do
       postInstance "192.168.0.$n:1-65535" "vm$n-ctn$m" "image-ctn" "192.168.$n.$m:1-65535" "noauth:docker"
       postInstanceConfig5 "192.168.0.$n:1-65535" "vm$n-ctn$m" "c1" "v1" "c2" "v2" "c3" "v3" "c4" "v4" "c5" "v5"
       #    postInstanceControl $IAAS "vm$n" "vm$n-ctn$m"
       if [ $L -le 2 ]; then
 	continue;
       fi
-      for l in `seq 1 4`; do
+      for l in `seq 1 2`; do
 	port1="3${l}000"
 	port2="3${l}999"
 	postInstance "192.168.$n.$m:1-65535" "vm$n-ctn$m-spark$l" "image-spark" "192.168.$n.$m:$port1-$port2"  "noauth:spark"

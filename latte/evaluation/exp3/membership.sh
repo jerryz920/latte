@@ -46,7 +46,7 @@ create() {
       if [ $L -le 2 ]; then
 	continue;
       fi
-      for l in `seq 1 4`; do
+      for l in `seq 1 2`; do
 	port1="3${l}000"
 	port2="3${l}999"
 	postInstance "192.168.$n.$m:1-65535" "vm$n-ctn$m-spark$l" "image-spark" "192.168.$n.$m:$port1-$port2"  "noauth:spark"
