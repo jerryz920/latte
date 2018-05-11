@@ -159,7 +159,7 @@ func config() {
 	flag.StringVar(&SafeAddr, "safe", "localhost:7777", "set safe address")
 	flag.StringVar(&ListenAddr, "listen", "0.0.0.0:19851", "listen address")
 	/// Each worker has its own cache
-	flag.IntVar(&Nworker, "nworker", 64, "listen address")
+	flag.IntVar(&Nworker, "nworker", 64, "num of workers")
 	flag.Parse()
 }
 
