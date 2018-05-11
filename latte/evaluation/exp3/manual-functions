@@ -17,6 +17,6 @@ postInstanceConfig() {
       shift 1
     done
 # ?Instance AnyNumberOfKVPair
-    curl -XPOST $SAFE_ADDR/postInstanceConfig -d "{ \"principal\": \"$principal\", \"otherValues\": [$args]}"
+    curl -XPOST $SAFE_ADDR/postInstanceConfig -d "{ \"principal\": \"$principal\", \"otherValues\": [$args], \"auth\":\"${AUTH:-1}\"}"
 }
 
