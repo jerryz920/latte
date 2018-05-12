@@ -1,134 +1,62 @@
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 1.044
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.721
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.791
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.776
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.756
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.755
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.766
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.761
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.739
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.757
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.745
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.753
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.771
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.758
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.740
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.767
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.768
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.739
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.725
-{
-  "message": "{ checking:fetch(vm1) }"
-}checkFetch 0.875
-target not found 192.168.1.1:1000checkFetch 0.053
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.798
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.798
-target not found 192.168.1.1:1000checkFetch 0.039
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.780
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.798
-target not found 192.168.1.1:1000checkFetch 0.041
-target not found 192.168.1.1:1000checkFetch 0.035
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.783
-target not found 192.168.1.1:1000checkFetch 0.036
-target not found 192.168.1.1:1000checkFetch 0.061
-checkFetch 0.004
-checkFetch 0.004
-checkFetch 0.004
-target not found 192.168.1.1:1000checkFetch 0.039
-target not found 192.168.1.1:1000checkFetch 0.037
-target not found 192.168.1.1:1000checkFetch 0.058
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.768
-target not found 192.168.1.1:1000checkFetch 0.037
-target not found 192.168.1.1:1000checkFetch 0.035
-{
-  "message": "{ checking:fetch('vm1-ctn1-spark1') }"
-}checkFetch 0.772
-target not found 192.168.1.1:30010checkFetch 0.036
-{
-  "message": "{ checking:fetch('vm1-ctn1-spark1') }"
-}checkFetch 0.788
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.758
-{
-  "message": "{ checking:fetch('vm1-ctn1-spark1') }"
-}checkFetch 0.799
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.771
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.788
-target not found 192.168.1.1:30010checkFetch 0.038
-target not found 192.168.1.1:30010checkFetch 0.036
-target not found 192.168.1.1:30010checkFetch 0.038
-target not found 192.168.1.1:30010checkFetch 0.037
-target not found 192.168.1.1:30010checkFetch 0.036
-target not found 192.168.1.1:30010checkFetch 0.034
-{
-  "message": "{ checking:fetch('vm1-ctn1-spark1') }"
-}checkFetch 0.808
-{
-  "message": "{ checking:fetch('vm1-ctn1-spark1') }"
-}checkFetch 0.794
-{
-  "message": "{ checking:fetch('vm1-ctn1-spark1') }"
-}checkFetch 0.794
-target not found 192.168.1.1:30010checkFetch 0.035
-target not found 192.168.1.1:30010checkFetch 0.035
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.721
-{
-  "message": "{ checking:fetch('vm1-ctn1') }"
-}checkFetch 0.761
+checkFetch 1.035
+checkFetch 0.768
+checkFetch 0.782
+checkFetch 0.788
+checkFetch 0.768
+checkFetch 0.762
+checkFetch 0.767
+checkFetch 0.752
+checkFetch 0.753
+checkFetch 0.753
+checkFetch 0.743
+checkFetch 0.763
+checkFetch 0.761
+checkFetch 0.747
+checkFetch 0.732
+checkFetch 0.776
+checkFetch 0.746
+checkFetch 0.733
+checkFetch 0.758
+checkFetch 0.733
+checkFetch 0.048
+checkFetch 0.059
+checkFetch 0.793
+checkFetch 0.043
+checkFetch 0.039
+checkFetch 0.038
+checkFetch 0.766
+checkFetch 0.036
+checkFetch 0.034
+checkFetch 0.037
+checkFetch 0.036
+checkFetch 0.037
+checkFetch 0.036
+checkFetch 0.036
+checkFetch 0.036
+checkFetch 0.036
+checkFetch 0.035
+checkFetch 0.036
+checkFetch 0.772
+checkFetch 0.779
+checkFetch 0.779
+checkFetch 0.037
+checkFetch 0.778
+checkFetch 0.036
+checkFetch 0.798
+checkFetch 0.819
+checkFetch 0.772
+checkFetch 0.790
+checkFetch 0.787
+checkFetch 0.035
+checkFetch 0.773
+checkFetch 0.036
+checkFetch 0.785
+checkFetch 0.796
+checkFetch 0.780
+checkFetch 0.039
+checkFetch 0.801
+checkFetch 0.788
+checkFetch 0.785
+checkFetch 0.783
+checkFetch 1.038
+checkFetch 0.766
