@@ -11,8 +11,9 @@ source utils.sh
 
 
 # configs
-N=1
+N=10
 L=3
+restartall
 
 create() {
   BUILDER="128.105.104.122:1-65535"
@@ -64,14 +65,25 @@ time create
 #checkBuilder $IaaS vm-builder
 
 LOG=${1:-buildsfrom-log}
-for n in `seq 1 20`; do
-  checkBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG
-  measureCheckBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG
+for n in `seq 1 100`; do
+  measureCheckBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG.cached
 done
-restartall
-create
+#
+#restartsafe
+#for n in `seq 1 20`; do
+#  measureCheckBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG.wo-objcache
+#  restartsafe
+#done
+#
+#restartproxy
+#for n in `seq 1 20`; do
+#  measureCheckBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG.wo-netcache
+#  restartproxy
+#done
 
-for n in `seq 1 20`; do
-  measureCheckBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG
-  restartproxy
-done
+#  restartfe
+#for n in `seq 1 20`; do
+#  measureCheckBuildsFrom anyone vm1-ctn1 image-ctn "https://github.com/apache/spark.git#dev" >> $LOG.wo-cache
+#  restartfe
+#done
+#

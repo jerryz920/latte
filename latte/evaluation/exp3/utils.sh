@@ -5,19 +5,31 @@ riakdir="/openstack/safe/uber-safe/cluster-scripts"
 workdir=`pwd`
 
 restartall() {
-#  cd $riakdir
-#  bash all-restart.sh
-#  sleep 4
-#  echo "starting metadata service"
-#  cd $workdir; bash stop.sh 1; bash start.sh 1
-#  sleep 20
+  cd $riakdir
+  bash all-restart.sh
+  sleep 4
+  echo "starting metadata service"
+  cd $workdir; bash stop.sh 1; bash start.sh 1
+  sleep 30
 echo
+}
+
+restartsafe() {
+  docker rm -f safe1
+  bash start.sh 1 1>>debugsafe.out 2>&1
+  sleep 20
 }
 
 restartproxy(){
-#  killall metaserver
-#  ./metaserver --debug --addr 10.10.1.3:8087 --addr 10.10.1.4:8087 --addr 10.10.1.5:8087 --safe localhost:7777 --listen 0.0.0.0:19852  >>perflog-meta-1 2>&1 &
-#  sleep 2
+  killall -KILL metaserver
+  sleep 0.5
+  bash start.sh 1 1>>debugsafe.out 2>&1
+  sleep 1
 echo
 }
 
+restartfe() {
+  bash stop.sh 1;
+  bash start.sh 1 1>>debugsafe.out 2>&1
+  sleep 30
+}

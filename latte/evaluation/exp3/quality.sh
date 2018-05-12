@@ -11,12 +11,19 @@ source utils.sh
 
 
 # configs
-N=10
+N=20
 L=3
 BUILDER="128.105.104.122:1-65535"
 
+restartall
 
 create() {
+for n in `cat cve.out`; do
+  m=`bash -c "echo $n"`
+  postEndorsement "vm-scanner" "image-cnt" "cve" $m
+done
+restartsafe
+sleep 10
 # endorse the source from "simulated instance" to simplify the test
 postVMInstance $IAAS "vm-builder" "image-builder" "128.105.104.122:1-65535" "192.168.1.0/24" "vpc-builder" "noauth:vm"
 postVMInstance $IAAS "vm-scanner" "image-scanner" "128.105.104.123:1-65535" "192.168.2.0/24" "vpc-scanner" "noauth:docker"
@@ -32,10 +39,7 @@ postEndorsement "vm-builder" "image-vm" "source" "https://github.com/jerryz920/b
 postEndorsement "vm-builder" "image-ctn" "source" "https://github.com/docker/ubuntu.git#xenial"
 postEndorsement "vm-builder" "image-scanner" "source" "https://github.com/arminc/clair-scanner.git#master"
 
-for n in `cat cve.out`; do
-  m=`bash -c "echo $n"`
-  postEndorsement "vm-scanner" "image-cnt" "cve" $m
-done
+
   for n in `seq 1 $N`; do
     echo "posting instance $n"
     postVMInstance $IAAS "vm$n" "image-vm" "192.168.0.$n:1-65535" "192.168.$n.0/24" "vpc1" "noauth:vm"
@@ -54,15 +58,13 @@ done
 create
 
 LOG=${1:-quality-log}
-for n in `seq 1 20`; do
-measureCheckCodeQuality "noauth:codeworker" 192.168.1.2:3000 >> LOG
+for n in `seq 1 100`; do
+measureCheckCodeQuality "noauth:codeworker" 192.168.1.2:3000 >> $LOG.cached
 done
-restartall
-create
-
-for n in `seq 1 20`; do
-measureCheckCodeQuality "noauth:codeworker" 192.168.1.2:3000 >> LOG
-restartproxy
-done
+#restartproxy
+#for n in `seq 1 20`; do
+#measureCheckCodeQuality "noauth:codeworker" 192.168.1.2:3000 >> $LOG.wo-netcache
+#restartproxy
+#done
 
 

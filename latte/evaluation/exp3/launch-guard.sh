@@ -31,11 +31,12 @@ source ./utils.sh
 # Verify that adding "mount" option fails it, and changing other config options fails it.
 
 
+restartall
 
 
 create() {
 # configs
-N=20
+N=200
 L=3
 BUILDER="128.105.104.122:1-65535"
 
@@ -48,18 +49,17 @@ postVpcConfig1 $IAAS "vpc1" "launchGuard" "JustForTest"
   for n in `seq 1 $N`; do
     echo "posting instance $n"
     postVMInstance $IAAS "vm$n" "image-vm" "192.168.0.$n:1-65535" "192.168.$n.0/24" "vpc1" "noauth:vm"
+    postInstanceConfig4 $IaaS "vm$n" "c1" "v1" "c2" "v2" "c3" "v3" "c4" "v4"
   done
 }
 create
 LOG=${1:-launch-guard-log}
-for n in `seq 1 20`; do
-measureCheckClusterGuard anyone vm1 >> $LOG
+for n in `seq 1 100`; do
+measureCheckClusterGuard anyone vm1 >> $LOG.cached
 done
 
-restartall
-create
-
-for n in `seq 1 20`; do
-measureCheckClusterGuard anyone vm1 >> $LOG
-restartproxy
-done
+#restartproxy
+#for n in `seq 1 20`; do
+#measureCheckClusterGuard anyone vm1 >> $LOG.wo-netcache
+#restartproxy
+#done

@@ -11,10 +11,11 @@ source utils.sh
 
 
 # configs
-N=20
+N=100
 L=3
 BUILDER="128.105.104.122:1-65535"
 
+restartall
 
 create() {
 # endorse the source from "simulated instance" to simplify the test
@@ -42,14 +43,24 @@ postEndorsement "vm-builder" "image-vm" "source" "https://github.com/jerryz920/b
 time create
 
 LOG=${1:-connection-log}
-for n in `seq 1 20`; do
-measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG
-done
-restartall
-create
-for n in `seq 1 20`; do
-measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG
-restartproxy
+for n in `seq 1 100`; do
+measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG.cached
 done
 
+#restartsafe
+#for n in `seq 1 20`; do
+#measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG.wo-objcache
+#restartsafe
+#done
 
+#restartproxy
+#for n in `seq 1 20`; do
+#  measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG.wo-netcache
+#  restartproxy
+#done
+
+#restartfe
+#for n in `seq 1 20`; do
+#  measureCheckTrustedConnections "noauth:checkconn" vm1 >> $LOG.wo-cache
+#  restartfe
+#done

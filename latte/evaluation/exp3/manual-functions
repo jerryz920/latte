@@ -3,7 +3,7 @@ lazyDeleteInstance() {
     local principal=$1
     shift 1
 # ?Instance
-    curl -XPOST $SAFE_ADDR/lazyDeleteInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"]}"
+    curl -XPOST $SAFE_ADDR/lazyDeleteInstance -d "{ \"principal\": \"$principal\", \"otherValues\": [\"${1}\"], \"auth\": \"${AUTH:-1}\"}"
 }
 
 postInstanceConfig() {

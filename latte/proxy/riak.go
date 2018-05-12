@@ -295,8 +295,6 @@ func (c *riakConn) genCachedInstance(d *riak.SearchDoc) *CachedInstance {
 
 	cidrs, ok := d.Fields[NETMAP_CIDR]
 	if !ok || cidrs == nil || len(cidrs) == 0 || cidrs[0] == "" {
-		logrus.Infof("missing ID in index: bucket=%s,key=%s, [%v]",
-			d.Bucket, d.Key, d.Fields)
 		cred.Cidr = nil
 	} else {
 		_, cidr, err := net.ParseCIDR(cidrs[0])

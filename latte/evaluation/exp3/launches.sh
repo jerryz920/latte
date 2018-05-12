@@ -14,6 +14,7 @@ source ./utils.sh
 N=10
 L=3
 
+restartall
 create() {
 BUILDER="128.105.104.122:1-65535"
 
@@ -60,15 +61,26 @@ postEndorsement "noauth:analytic" "image-spark" "source" "https://github.com/int
 create
 
 LOG=${1:-launches-log}
-for n in `seq 1 20`; do
-measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG
+for n in `seq 1 100`; do
+measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG.cached
 done
 
-restartall
-create
+#restartsafe
+#
+#for n in `seq 1 20`; do
+#measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG.wo-objcache
+#restartsafe
+#done
 
-for n in `seq 1 20`; do
-measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG
-restartproxy
-done
+#restartproxy
+#
+#for n in `seq 1 20`; do
+#measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG.wo-netcache
+#restartproxy
+#done
 
+#restartfe
+#for n in `seq 1 20`; do
+#measureCheckLaunches anyone vm1-ctn1 image-ctn >> $LOG.wo-cache
+#restartfe
+#done

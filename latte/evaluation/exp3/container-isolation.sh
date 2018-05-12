@@ -36,6 +36,7 @@ source ./utils.sh
 N=20
 L=3
 BUILDER="128.105.104.122:1-65535"
+restartall
 
 create() {
 
@@ -47,7 +48,8 @@ postEndorsement "vm-builder" "image-ctn" "source" "https://github.com/apache/spa
   for n in `seq 1 $N`; do
     echo "posting instance $n"
     postVMInstance $IAAS "vm$n" "image-vm" "192.168.0.$n:1-65535" "192.168.$n.0/24" "vpc1" "noauth:vm"
-    for m in `seq 1 1`; do
+    postInstanceConfig4 $IaaS "vm$n" "c1" "v1" "c2" "v2" "c3" "v3" "c4" "v4"
+    for m in `seq 1 10`; do
       postInstance "192.168.0.$n:1-65535" "vm$n-ctn$m" "image-ctn" "192.168.$n.$m:1-65535" "noauth:docker"
       postInstanceConfig "vm$n" "vm$n-ctn$m" "pidns" "default" "netns" "default" "mountns" "default" "utsns" "default" "ipcns" "default" "apparmor-profile" "default" "privileged" "false" # mount?
     done
@@ -56,16 +58,28 @@ postEndorsement "vm-builder" "image-ctn" "source" "https://github.com/apache/spa
 create
 
 LOG=${1:-isolation-log}
-for n in `seq 1 20`; do
-#measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG
-checkContainerIsolation "anyone" vm1-ctn1 >> $LOG
+for n in `seq 1 25`; do
+measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG.cached
+#checkContainerIsolation "anyone" vm1-ctn1 >> $LOG
 done
 
-restartall
+#restartsafe
+#for n in `seq 1 20`; do
+#measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG.wo-objcache
+#restartsafe
+#done
 
-create
-
-for n in `seq 1 20`; do
-measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG
+restartproxy
+for n in `seq 1 100`; do
+measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG.wo-netcache
 restartproxy
 done
+
+#restartfe
+#for n in `seq 1 20`; do
+#measureCheckContainerIsolation "anyone" vm1-ctn1 >> $LOG.wo-cache
+#restartfe
+#done
+
+
+

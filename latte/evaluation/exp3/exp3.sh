@@ -10,79 +10,92 @@ source ./functions
 source ./manual-functions
 source ./utils.sh
 
-do_cache() {
-  for n in `seq 1 $1`; do
-    measurePostVMInstance $IAAS "vm$n" "image-vm" "192.168.0.$n:1-65535" "192.168.$n.0/24" "vpc1" "noauth:vm"
-  done
-  n=1
-  for m in `seq 1 $1`; do
-    measurePostInstance "192.168.0.$n:1-65535" "vm$n-ctn$m" "image-ctn" "192.168.$n.$m:1-65535" "noauth:docker"
-  done
-  m=1
-  for l in `seq 1 $1`; do
-    port1=`expr 30000 + $l \* 10`
-    port2=`expr 30000 + $l \* 10 + 9`
-    measurePostInstance "192.168.$n.$m:1-65535" "vm$n-ctn$m-spark$l" "image-spark" "192.168.$n.$m:$port1-$port2"  "noauth:spark"
-  done
-  restartproxy
-  for n in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.0.1:1000
-  done
-  n=1
-  for m in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.1.1:1000
-  done
-  m=1
-  for l in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.1.1:30010
-  done
-}
 
-no_cache() {
-  for n in `seq 1 $1`; do
-    measurePostVMInstance $IAAS "vm$n" "image-vm" "192.168.0.$n:1-65535" "192.168.$n.0/24" "vpc1" "noauth:vm"
-    restartproxy
+measure() {
+  for n in `seq 1 100`; do
+    postVMInstance $IAAS "vm$n" "image-vm" "192.168.0.$n:1-65535" "192.168.$n.0/24" "vpc1" "noauth:vm"
   done
   n=1
-  for m in `seq 1 $1`; do
-    measurePostInstance "192.168.0.$n:1-65535" "vm$n-ctn$m" "image-ctn" "192.168.$n.$m:1-65535" "noauth:docker"
-    restartproxy
+  for m in `seq 1 100`; do
+    postInstance "192.168.0.$n:1-65535" "vm$n-ctn$m" "image-ctn" "192.168.$n.$m:1-65535" "noauth:docker"
   done
   m=1
-  for l in `seq 1 $1`; do
+  for l in `seq 1 100`; do
     port1=`expr 30000 + $l \* 10`
     port2=`expr 30000 + $l \* 10 + 9`
-    measurePostInstance "192.168.$n.$m:1-65535" "vm$n-ctn$m-spark$l" "image-spark" "192.168.$n.$m:$port1-$port2"  "noauth:spark"
-    restartproxy
+    postInstance "192.168.$n.$m:1-65535" "vm$n-ctn$m-spark$l" "image-spark" "192.168.$n.$m:$port1-$port2"  "noauth:spark"
   done
-  restartproxy
+  #echo "CACHE"
+  #for n in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.0.1:1000 >> $2.cached
+  #done
+  #n=1
+  #for m in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.1.1:1000 >> $2.cached
+  #done
+  #m=1
+  #for l in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.1.1:30010 >> $2.cached
+  #done
+  #echo "PROXY"
+  #restartproxy
+  #for n in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.0.1:1000 >> $2.wo-netcache
+  #  restartproxy
+  #done
+  #n=1
+  #for m in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.1.1:1000 >> $2.wo-netcache
+  #  restartproxy
+  #done
+  #m=1
+  #for l in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.1.1:30010 >> $2.wo-netcache
+  #  restartproxy
+  #done
+  #echo "SAFE"
+  #restartsafe
+  #for n in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.0.1:1000 >> $2.wo-objcache
+  #  restartsafe
+  #done
+  #n=1
+  #for m in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.1.1:1000 >> $2.wo-objcache
+  #  restartsafe
+  #done
+  #m=1
+  #for l in `seq 1 $1`; do
+  #  measureCheckFetch checking  192.168.1.1:30010 >> $2.wo-objcache
+  #  restartsafe
+  #done
+
+  echo "FE"
+  restartfe
   for n in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.0.1:1000
-    restartproxy
+    measureCheckFetch checking  192.168.0.1:1000 >> $2.wo-cache
+    restartfe
   done
   n=1
   for m in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.1.1:1000
-    restartproxy
+    measureCheckFetch checking  192.168.1.1:1000 >> $2.wo-cache
+    restartfe
   done
   m=1
   for l in `seq 1 $1`; do
-    measureCheckFetch checking  192.168.1.1:30010
-    restartproxy
+    measureCheckFetch checking  192.168.1.1:30010 >> $2.wo-cache
+    restartfe
   done
+
 }
 
 
 mkdir -p results
 
 # we measure 100 100 100 
-for run in 1 2 3 4 5; do
+for run in 1; do
   restartall
-  do_cache 20 >> cache-create.log
-  restartall
-  no_cache 20 >> nocache-create.log
+  measure 20 $1
 done
-mv cache-create.log results
-mv nocache-create.log results
 
 
